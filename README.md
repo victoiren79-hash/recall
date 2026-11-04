@@ -232,4 +232,12 @@ On a desktop browser, IWSDK provides mouse-and-keyboard emulation of a headset, 
 
 ## 20. Credits and license
 
-Built solo by Victoire. All code, content, and assets are original or used under their own licenses. [TODO: add the list of third-party assets and their licenses before submission.]
+**Author:** Built solo by Victoire.
+
+**License:** The source code in this repository is released under the [MIT License](LICENSE).
+
+**Third-party software:** Recall is built on the Immersive Web SDK, Three.js, and other open-source packages. They are installed from npm and not copied into this repository, and each stays under its own license. Development-only tooling (for example `@meta-quest/metavr`) is not part of the shipped build.
+
+**Assets:** The pack content, distractor explanations, and visuals are original. [TODO: list any third-party assets (fonts, audio, models) and their licenses before submission.]
+
+**Competition:** Entered in the Meta VR Start Developer Competition 2026. Under the Official Rules, the author keeps ownership of the entry and grants the sponsor the rights described there for evaluation and promotion.
