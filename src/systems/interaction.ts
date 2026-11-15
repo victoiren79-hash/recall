@@ -31,9 +31,58 @@ import { Card, Socket, LinkLine } from '../components';
 import { checkPlacement, getLitLinks, isComplete, linkId, type Placed, type Socket as ValidatorSocket } from './validator';
 import { SpringValue, damp, easeOutCubic } from './motion';
 import { sfx } from './audio';
+import { ScreenRayIntersector } from '@pmndrs/pointer-events/dist/intersections/ray.js';
 
 /** Raycast passthrough for cards that must not steal the pointer ray. */
 const NO_RAYCAST = (): void => {};
+
+let cursorRayPatchDone = false;
+
+/**
+ * Desktop drag fix. IWSDK's screen-ray pointer (canvas mouse) reports the
+ * CAMERA quaternion as the pointer orientation, and DistanceGrabbable's
+ * MoveTowardsTarget holds the grabbed card at `offset` from that quaternion —
+ * so on the flat page the card parks at one fixed camera-relative point and
+ * never follows the cursor. Re-align `pointerQuaternion` on every screen-ray
+ * intersection to the actual cursor-ray direction (the raycaster already
+ * exposes it in `details.direction`), so held cards ride the ray exactly like
+ * an XR controller's. XR pointers use a different intersector class and are
+ * untouched.
+ */
+function patchScreenRayCursorTracking(): void {
+  if (cursorRayPatchDone) return;
+  cursorRayPatchDone = true;
+  try {
+    const proto = ScreenRayIntersector.prototype as unknown as {
+      finalizeIntersection: (...args: unknown[]) => unknown;
+      intersectPointerCapture: (...args: unknown[]) => unknown;
+      __recallRayQuat?: boolean;
+    };
+    if (proto.__recallRayQuat) return;
+    proto.__recallRayQuat = true;
+    const negZ = new Vector3(0, 0, -1);
+    const align = (intersection: unknown): unknown => {
+      const ix = intersection as
+        | { pointerQuaternion?: Quaternion; details?: { direction?: Vector3 } }
+        | undefined;
+      if (!ix?.pointerQuaternion) return intersection;
+      const dir = ix.details?.direction;
+      if (!dir || !Number.isFinite(dir.x) || dir.lengthSq() < 1e-8) return intersection;
+      ix.pointerQuaternion.setFromUnitVectors(negZ, dir);
+      return intersection;
+    };
+    const origFinalize = proto.finalizeIntersection;
+    proto.finalizeIntersection = function (...args: unknown[]) {
+      return align(origFinalize.apply(this, args));
+    };
+    const origCapture = proto.intersectPointerCapture;
+    proto.intersectPointerCapture = function (...args: unknown[]) {
+      return align(origCapture.apply(this, args));
+    };
+  } catch (err) {
+    console.warn('[Recall/interaction] cursor-ray patch unavailable', err);
+  }
+}
 
 /** Snap radius, metres (pointer-ray distance to a socket centre). Generous
  * by design — comfort over precision (spec §4). */
@@ -234,6 +283,9 @@ export class InteractionSystemImpl extends InteractionSystem {
     for (const [nodeId, slot] of this.spawn.traySpawnSlots) {
       if (nodeId.startsWith('distractor-')) this.traySlotOccupant.set(slot, nodeId);
     }
+
+    // Desktop: make held cards follow the cursor (see the patch docstring).
+    patchScreenRayCursorTracking();
 
     // Track the desktop pointer over the canvas for the ray-snap fallback.
     // Wired once — the canvas outlives individual sessions.

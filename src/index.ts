@@ -6,6 +6,7 @@
 import {
   World,
   Vector3,
+  Euler,
   FogExp2,
   Sprite,
   SpriteMaterial,
@@ -697,8 +698,60 @@ World.create(
   } else {
     console.warn('[Recall] world.onXRFrame not available; relying on the page loop only');
   }
+
+  // ---- Desktop look-around (WASD) ----
+  // Seated by design: the flat camera pivots in place (A/D turn) and tilts
+  // (W/S look up/down) — it never walks. XR headsets drive their own camera,
+  // so this is flat-page only.
+  const LOOK_YAW_SPEED = 1.4; // rad/s
+  const LOOK_PITCH_SPEED = 0.9; // rad/s
+  const LOOK_PITCH_LIMIT = 0.7; // rad (~40°)
+  const lookKeys = new Set<string>();
+  let lookBase: { yaw: number; pitch: number } | null = null;
+  let lookYaw = 0;
+  let lookPitch = 0;
+  let lookLastMs = -1;
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat) return;
+    if (e.code === 'KeyW' || e.code === 'KeyA' || e.code === 'KeyS' || e.code === 'KeyD') {
+      lookKeys.add(e.code);
+    }
+  });
+  window.addEventListener('keyup', (e) => {
+    lookKeys.delete(e.code);
+  });
+  window.addEventListener('blur', () => lookKeys.clear());
+  const stepLook = (): void => {
+    if (isPresenting()) {
+      lookBase = null; // re-capture the flat pose after an XR session ends
+      lookKeys.clear();
+      return;
+    }
+    const cam = (world as any).camera;
+    if (!cam) return;
+    const now = performance.now();
+    if (lookLastMs < 0) {
+      lookLastMs = now;
+      return;
+    }
+    const dt = Math.min(0.1, (now - lookLastMs) / 1000);
+    lookLastMs = now;
+    if (lookKeys.size === 0) return;
+    const yawIn = (lookKeys.has('KeyA') ? 1 : 0) - (lookKeys.has('KeyD') ? 1 : 0);
+    const pitchIn = (lookKeys.has('KeyW') ? 1 : 0) - (lookKeys.has('KeyS') ? 1 : 0);
+    if (yawIn === 0 && pitchIn === 0) return;
+    if (!lookBase) {
+      const base = new Euler().setFromQuaternion(cam.quaternion, 'YXZ');
+      lookBase = { yaw: base.y, pitch: base.x };
+    }
+    lookYaw = Math.max(-Math.PI, Math.min(Math.PI, lookYaw + yawIn * LOOK_YAW_SPEED * dt));
+    lookPitch = Math.max(-LOOK_PITCH_LIMIT, Math.min(LOOK_PITCH_LIMIT, lookPitch + pitchIn * LOOK_PITCH_SPEED * dt));
+    cam.rotation.set(lookBase.pitch + lookPitch, lookBase.yaw + lookYaw, 0, 'YXZ');
+  };
+
   const pageLoop = () => {
     stepXr();
+    stepLook();
     // The audio listener rides the head pose so spatial sounds stay put.
     try {
       const lp = getViewerPose();
