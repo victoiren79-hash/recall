@@ -7,7 +7,7 @@
 // Run: node scripts/verify-flat-drag.mjs   (dev server on :8081)
 import { chromium } from 'playwright';
 
-const URL = 'https://localhost:8081/';
+const URL = process.env.RECALL_URL || 'https://localhost:8081/';
 const browser = await chromium.launch({
   headless: true,
   args: ['--enable-unsafe-swiftshader', '--ignore-certificate-errors'],

@@ -2,7 +2,7 @@
 // App conductor: boots the world, loads persisted progress, and runs the
 // session machine — SEE (study the structure) → scramble → REBUILD → complete
 // → SUMMARY → Replay / Next Day.
-//cool test
+
 import {
   World,
   Vector3,
@@ -778,8 +778,10 @@ World.create(
     clearSeeTimer();
   });
 
-  // Dev-only automation hooks (stripped from production builds).
-  if (import.meta.env.DEV) {
+  // Automation hooks: always on in dev, and on local production-style
+  // previews (localhost) so the bundled build can be verified end-to-end.
+  // Never active on deployed sites.
+  if (import.meta.env.DEV || location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
     (window as any).__recall = {
       placeAll: () => interaction?.debugPlaceAll(),
       nextDay: () => hud?.onNextDay(),
