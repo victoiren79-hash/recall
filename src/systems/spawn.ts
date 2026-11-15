@@ -2153,7 +2153,7 @@ export function spawnStructure(
   // Balanced seated distance: near enough to read the card labels, far
   // enough that turning controllers don't sweep through the ring. Tuned
   // between 0.4 (hands clipped the sockets) and 0.75 (labels too small).
-  const XR_CYCLE_DEPTH_M = 0.6;
+  const XR_CYCLE_DEPTH_M = 0.5;
 
   const applyXRLayout = (isXR: boolean): void => {
     // Shrink to near-physical size and sit the ring at the comfortable depth
