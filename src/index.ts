@@ -21,7 +21,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import projectOptions from 'virtual:iwsdk-project';
 
-// __RECALL_UI_VERSION__: v7
+// __RECALL_UI_VERSION__: v8
 import { PanelSystem } from './panel.js';
 import { loadBundledPack } from './packs/loadPack';
 import { buildLayout } from './systems/layout';
@@ -224,11 +224,13 @@ World.create(
   // triggers entirely (that is the "left laser only, hands work" symptom).
   // The injection applies prefs patches posted on this channel, so exposing
   // a one-call switch lets us (and the user, from the console) snap back to
-  // controllers without hunting through the emulator UI.
+  // controllers without hunting through the emulator UI. The emulator's RPC
+  // listener dispatches `setInputMode` with `{ mode }` (see its message
+  // handler: `executeSetInputMode({ mode })`).
   (window as any).__recallSetEmulatorInput = (mode: 'controller' | 'hand'): void => {
     if (mode !== 'controller' && mode !== 'hand') return;
     window.postMessage(
-      { channel: 'iwer-prefs', scope: 'origin', patch: { inputMode: mode } },
+      { id: `recall-${Date.now()}`, method: 'setInputMode', params: { mode } },
       window.location.origin === 'null' ? '*' : window.location.origin,
     );
   };
@@ -293,12 +295,30 @@ World.create(
     '  background: rgba(34, 44, 70, 0.92);',
     '  border-color: rgba(140, 190, 250, 0.9);',
     '}',
+    // Desktop affordances hint: small, dim, bottom-left — discoverable
+    // without competing with the scene.
+    '.recall-desktop-hint {',
+    '  position: fixed; bottom: 14px; left: 16px; z-index: 1000;',
+    '  padding: 7px 14px; border-radius: 10px;',
+    '  border: 1px solid rgba(96, 165, 250, 0.28);',
+    '  background: rgba(16, 21, 36, 0.72); color: rgba(214, 230, 250, 0.85);',
+    "  font: 500 12px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;",
+    '  letter-spacing: 0.03em; pointer-events: none; user-select: none;',
+    '}',
+    '.recall-desktop-hint b { color: #ffffff; font-weight: 700; }',
   ].join('\n');
   document.head.appendChild(xrStyle);
   document.body.appendChild(enterXR);
+  // The desktop hint: WASD turns the (seated) view, mouse drags cards.
+  const desktopHint = document.createElement('div');
+  desktopHint.className = 'recall-desktop-hint';
+  desktopHint.innerHTML = '<b>WASD</b> — turn around &nbsp;·&nbsp; <b>Mouse</b> — grab &amp; drop cards';
+  document.body.appendChild(desktopHint);
   const xrRenderer = (world as any).renderer;
   const syncXRButton = (): void => {
-    enterXR.style.display = xrRenderer?.xr?.isPresenting ? 'none' : 'block';
+    const presenting = Boolean(xrRenderer?.xr?.isPresenting);
+    enterXR.style.display = presenting ? 'none' : 'block';
+    desktopHint.style.display = presenting ? 'none' : 'block';
   };
   xrRenderer?.xr?.addEventListener?.('sessionstart', syncXRButton);
   xrRenderer?.xr?.addEventListener?.('sessionend', syncXRButton);
@@ -310,7 +330,7 @@ World.create(
 
   // Visible UI version (shown next to the logo) — bump it whenever the visual
   // build changes so a stale tab is instantly recognisable.
-  const UI_VERSION = 'v7';
+  const UI_VERSION = 'v8';
 
   // Self-healing dev reload: a long-lived tab keeps running old code across
   // dev-server restarts (the HMR socket dies with the old process). Poll the

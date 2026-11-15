@@ -2150,11 +2150,15 @@ export function spawnStructure(
   // depths change — a hard-coded one silently pushed the ring behind the
   // player when the layout moved from a deep ring to the current ~0.8 m one.
   const XR_SCALE = 0.75;
-  const XR_CYCLE_DEPTH_M = 0.4;
+  // Comfortable seated viewing distance, with clearance for the hands: any
+  // closer and the player's controllers sweep THROUGH the cycle when they
+  // turn left/right or reach across the ring.
+  const XR_CYCLE_DEPTH_M = 0.75;
 
   const applyXRLayout = (isXR: boolean): void => {
-    // "Pull the user": in XR the cycle moves INTO the player's hands —
-    // near-physical size, filling the view like the reference.
+    // Shrink to near-physical size and sit the ring at the comfortable depth
+    // above the table — close enough to study, far enough that the hands and
+    // controllers never clip through a socket or card.
     structure.object3D.scale.setScalar(isXR ? XR_SCALE : 1);
     structure.object3D.position.z = structureBaseZ + (isXR
       ? -XR_CYCLE_DEPTH_M - XR_SCALE * cycleCenterZ
