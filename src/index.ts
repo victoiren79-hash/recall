@@ -236,6 +236,55 @@ World.create(
   window.addEventListener('pointerdown', () => ensureAudio(), { once: true });
   window.addEventListener('keydown', () => ensureAudio(), { once: true });
 
+  // Enter XR overlay (production has no dev-plugin UI): a fixed glass button
+  // that requests the immersive session — works from desktop Chrome and the
+  // Quest browser. Hidden while presenting; the flat page stays playable
+  // with the mouse (IWSDK's canvas pointer drives a cursor + grab).
+  const enterXR = document.createElement('button');
+  enterXR.type = 'button';
+  enterXR.className = 'recall-enter-xr';
+  enterXR.textContent = 'Enter XR';
+  enterXR.addEventListener('click', () => {
+    ensureAudio();
+    try {
+      const result = (world as any).launchXR?.();
+      if (result?.catch) {
+        result.catch((err: unknown) => {
+          console.warn('[Recall] launchXR failed', err);
+          enterXR.textContent = 'XR unavailable here — use the mouse on this page';
+          window.setTimeout(() => (enterXR.textContent = 'Enter XR'), 3000);
+        });
+      }
+    } catch (err) {
+      console.warn('[Recall] launchXR failed', err);
+    }
+  });
+  const xrStyle = document.createElement('style');
+  xrStyle.textContent = [
+    '.recall-enter-xr {',
+    '  position: fixed; top: 16px; right: 16px; z-index: 1000;',
+    '  padding: 10px 24px; border-radius: 14px;',
+    '  border: 1px solid rgba(96, 165, 250, 0.6);',
+    '  background: rgba(20, 26, 43, 0.85); color: #ffffff;',
+    "  font: 600 15px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;",
+    '  cursor: pointer; letter-spacing: 0.04em;',
+    '  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.25);',
+    '}',
+    '.recall-enter-xr:hover {',
+    '  background: rgba(34, 44, 70, 0.92);',
+    '  border-color: rgba(140, 190, 250, 0.9);',
+    '}',
+  ].join('\n');
+  document.head.appendChild(xrStyle);
+  document.body.appendChild(enterXR);
+  const xrRenderer = (world as any).renderer;
+  const syncXRButton = (): void => {
+    enterXR.style.display = xrRenderer?.xr?.isPresenting ? 'none' : 'block';
+  };
+  xrRenderer?.xr?.addEventListener?.('sessionstart', syncXRButton);
+  xrRenderer?.xr?.addEventListener?.('sessionend', syncXRButton);
+  syncXRButton();
+
   // Register the core systems we need. GrabSystem is already registered by
   // World.create (iwsdk.config.json sets world.features.grabbing: true).
   world.registerSystem(PanelSystem);
