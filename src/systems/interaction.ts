@@ -778,12 +778,26 @@ export class InteractionSystemImpl extends InteractionSystem {
    * cursor ray it hangs on does. Works in XR (controller ray of the holding
    * hand) and on desktop (camera ray through the cursor).
    */
-  private raySnapCandidate(entity: any): number {
+  /**
+   * Empty sockets nearest to the AIM ray, in root-local space. Returns the
+   * closest VALID one (the drop target) and the closest overall (the rejection
+   * target when nothing valid is under the cursor). Validity-aware for the
+   * same reason as the position match: an invalid nearest socket must not
+   * swallow the drop when a valid one sits just as close.
+   */
+  private raySnapCandidate(
+    entity: any,
+    nodeId: string,
+    placed: Placed,
+  ): { valid: number; near: number } {
+    const none = { valid: -1, near: -1 };
     const ray = this.aimRay(entity);
-    if (!ray) return -1;
+    if (!ray) return none;
 
-    let best = -1;
-    let bestDist = SNAP_RADIUS_M;
+    let valid = -1;
+    let validDist = SNAP_RADIUS_M;
+    let near = -1;
+    let nearDist = SNAP_RADIUS_M;
 
     const root3D = this.spawn.structure.object3D;
     root3D.updateWorldMatrix(true, false);
@@ -804,12 +818,19 @@ export class InteractionSystemImpl extends InteractionSystem {
       if (t <= 0) continue; // socket behind the pointer
       this.tmpClosest.copy(this.tmpDir).multiplyScalar(t).add(this.tmpOrigin);
       const d = this.tmpClosest.distanceTo(this.tmpSocket);
-      if (d < bestDist) {
-        bestDist = d;
-        best = s.index;
+      if (d < nearDist) {
+        nearDist = d;
+        near = s.index;
+      }
+      if (d < validDist) {
+        const check = checkPlacement(this.pack, this.validatorSockets, placed, nodeId, s.index);
+        if (check.valid) {
+          validDist = d;
+          valid = s.index;
+        }
       }
     }
-    return best;
+    return { valid, near };
   }
 
   private isPresenting(): boolean {
@@ -904,8 +925,16 @@ export class InteractionSystemImpl extends InteractionSystem {
 
     const placed = this.currentPlacedMap();
 
+    // Nearest VALID empty socket wins the drop. Validity is part of the
+    // selection, not a post-check: the geometrically closest socket may be
+    // one the card can't legally enter yet (wrong order), and bouncing the
+    // whole drop because of it felt like the snap "only works sometimes".
+    // `nearIndex` keeps the closest empty socket regardless, so the rejection
+    // toast still names the relationship the player actually aimed at.
     let bestIndex = -1;
     let bestDistSq = SNAP_RADIUS_M * SNAP_RADIUS_M;
+    let nearIndex = -1;
+    let nearDistSq = SNAP_RADIUS_M * SNAP_RADIUS_M;
     for (const s of this.layout.sockets) {
       const occ = this.spawn.socketsByIndex.get(s.index)?.getValue(Socket, 'occupant') as
         | string
@@ -915,24 +944,34 @@ export class InteractionSystemImpl extends InteractionSystem {
       const dy = this.tmpLocal.y - s.position.y;
       const dz = this.tmpLocal.z - s.position.z;
       const d2 = dx * dx + dy * dy + dz * dz;
+      if (d2 < nearDistSq) {
+        nearDistSq = d2;
+        nearIndex = s.index;
+      }
       if (d2 < bestDistSq) {
-        bestDistSq = d2;
-        bestIndex = s.index;
+        const check = checkPlacement(this.pack, this.validatorSockets, placed, nodeId, s.index);
+        if (check.valid) {
+          bestDistSq = d2;
+          bestIndex = s.index;
+        }
       }
     }
 
     // Position match first (the card physically lands in a socket), ray aim
     // second (the cursor points at a socket the card can't reach on its own).
     if (bestIndex < 0) {
-      bestIndex = this.raySnapCandidate(entity);
+      const ray = this.raySnapCandidate(entity, nodeId, placed);
+      bestIndex = ray.valid;
+      if (nearIndex < 0) nearIndex = ray.near;
     }
 
     if (bestIndex >= 0) {
-      const check = checkPlacement(this.pack, this.validatorSockets, placed, nodeId, bestIndex);
-      if (check.valid) {
-        this.snapToSocket(entity, nodeId, bestIndex);
-        return;
-      }
+      this.snapToSocket(entity, nodeId, bestIndex);
+      return;
+    }
+
+    if (nearIndex >= 0) {
+      const check = checkPlacement(this.pack, this.validatorSockets, placed, nodeId, nearIndex);
       const blocking = check.blockingLinkIds ?? [];
       this.sessionRejections.push({ nodeId, reason: check.reason ?? 'unknown-node', linkIds: blocking });
       // Spec §5D: mistakes guide gently — a warm amber response while the

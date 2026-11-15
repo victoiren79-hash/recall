@@ -645,11 +645,13 @@ export function createHud(world: any, root: any): HudHandles {
     hud.hideSummary();
   }, 0.13);
   sidePanels.push(
-    // XR: spread wider and dropped lower than the ring's bottom card — clear
-    // of the cycle without pushing anything outside the frontal glance.
-    { entity: replayBtn.entity, flat: { x: -0.16, y: 0.075, z: -0.52 }, xr: { x: -0.32, y: -0.14, z: -0.5 } },
-    { entity: nextDayBtn.entity, flat: { x: 0, y: 0.075, z: -0.52 }, xr: { x: -0.1, y: -0.14, z: -0.5 } },
-    { entity: closeBtn.entity, flat: { x: 0.16, y: 0.075, z: -0.52 }, xr: { x: 0.12, y: -0.14, z: -0.5 } },
+    // XR: the ring rotates a few degrees per session, so dodging it laterally
+    // can never be reliable — the row instead sits clearly BELOW the card
+    // band (the lowest card bottoms out ~0.13 above this line), still inside
+    // the frontal glance.
+    { entity: replayBtn.entity, flat: { x: -0.16, y: 0.075, z: -0.52 }, xr: { x: -0.32, y: -0.27, z: -0.45 } },
+    { entity: nextDayBtn.entity, flat: { x: 0, y: 0.075, z: -0.52 }, xr: { x: -0.1, y: -0.27, z: -0.45 } },
+    { entity: closeBtn.entity, flat: { x: 0.16, y: 0.075, z: -0.52 }, xr: { x: 0.12, y: -0.27, z: -0.45 } },
   );
   // Replay / Next Day / Close start hidden with the modal.
   for (const m of buttonMeshes.slice(0, 3)) m.visible = false;
