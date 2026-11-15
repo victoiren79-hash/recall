@@ -244,19 +244,37 @@ World.create(
   enterXR.type = 'button';
   enterXR.className = 'recall-enter-xr';
   enterXR.textContent = 'Enter XR';
+  const setXRLabel = (text: string, ms = 0): void => {
+    enterXR.textContent = text;
+    if (ms > 0) window.setTimeout(() => (enterXR.textContent = 'Enter XR'), ms);
+  };
+  // Support pre-flight: on a desktop without an XR runtime, say so instead of
+  // failing silently — the flat page stays mouse-playable either way.
+  const xrCheck = (navigator as any).xr?.isSessionSupported?.('immersive-vr');
+  if (xrCheck?.then) {
+    xrCheck
+      .then((ok: boolean) => {
+        if (!ok) setXRLabel('Desktop mode — mouse-playable (XR needs a headset or emulator)');
+      })
+      .catch(() => {});
+  }
   enterXR.addEventListener('click', () => {
     ensureAudio();
+    if (!(navigator as any).xr) {
+      setXRLabel('XR not available in this browser — desktop mode uses the mouse', 3000);
+      return;
+    }
     try {
       const result = (world as any).launchXR?.();
       if (result?.catch) {
         result.catch((err: unknown) => {
           console.warn('[Recall] launchXR failed', err);
-          enterXR.textContent = 'XR unavailable here — use the mouse on this page';
-          window.setTimeout(() => (enterXR.textContent = 'Enter XR'), 3000);
+          setXRLabel('XR failed to start — the page stays mouse-playable', 3000);
         });
       }
     } catch (err) {
       console.warn('[Recall] launchXR failed', err);
+      setXRLabel('XR failed to start — the page stays mouse-playable', 3000);
     }
   });
   const xrStyle = document.createElement('style');
