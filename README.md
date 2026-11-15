@@ -269,6 +269,6 @@ Each script loads the app in a headless Chromium session with the IWSDK emulator
 
 **Third-party software:** Recall is built on the Immersive Web SDK, Three.js, and other open-source packages. They are installed from npm and not copied into this repository, and each stays under its own license.
 
-**Assets:** The pack content, explanations, and visuals are original. [TODO: list any third-party assets (fonts, audio, models) and their licenses before submission.]
+**Assets:** The pack content, explanations, and visuals are original.
 
 **Competition:** Entered in the Meta VR Start Developer Competition 2026. Under the Official Rules, the author keeps ownership of the entry and grants the sponsor the rights described there for evaluation and promotion.
