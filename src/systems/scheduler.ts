@@ -34,6 +34,10 @@ export interface LinkProgress {
   strength: number;
   /** Simulated day of the last rebuild covering this link. */
   lastSession: number;
+  /** Simulated day this link was actually hidden for recall (a real test).
+   * 0 = never tested. Drives the review rotation — without it every link
+   * shares `lastSession` and the same weak links get hidden every day. */
+  lastTested: number;
 }
 
 export interface ConceptProgress {
@@ -97,7 +101,7 @@ function clampStrength(v: number): number {
 }
 
 function emptyLink(): LinkProgress {
-  return { strength: 1, lastSession: 0 };
+  return { strength: 1, lastSession: 0, lastTested: 0 };
 }
 
 function emptyConcept(): ConceptProgress {
@@ -113,7 +117,10 @@ function normalizeLink(raw: unknown): LinkProgress {
   const lastSession = typeof r.lastSession === 'number' && Number.isFinite(r.lastSession)
     ? Math.max(0, Math.floor(r.lastSession))
     : 0;
-  return { strength, lastSession };
+  const lastTested = typeof r.lastTested === 'number' && Number.isFinite(r.lastTested)
+    ? Math.max(0, Math.floor(r.lastTested))
+    : 0;
+  return { strength, lastSession, lastTested };
 }
 
 function normalizeConcept(raw: unknown): ConceptProgress {
@@ -207,17 +214,21 @@ export function initSchedulerState(pack: Pack, startSession = 1): SchedulerState
  * (wrong-order rejections name their blocking links; band/occupied
  * rejections provide no relationship evidence and cost none).
  * Links assisted by hints gain less than independently recalled ones.
+ * `testedLinkIds` names the links that were hidden for recall this session —
+ * they alone get a `lastTested` stamp, which drives the review rotation.
  */
 export function applySessionResult(
   state: SchedulerState,
   pack: Pack,
   rejections: SessionRejection[],
   hintedConcepts: string[] = [],
+  testedLinkIds: string[] = [],
 ): SchedulerState {
   const rejected = new Set<string>();
   for (const r of rejections) {
     for (const id of r.linkIds) rejected.add(id);
   }
+  const tested = new Set(testedLinkIds);
   const assisted = new Set(hintedConcepts);
   const links: Record<string, LinkProgress> = {};
   for (const l of pack.links) {
@@ -229,6 +240,7 @@ export function applySessionResult(
     links[id] = {
       strength: clampStrength(prev.strength + delta),
       lastSession: state.day,
+      lastTested: tested.has(id) ? state.day : prev.lastTested,
     };
   }
   const concepts: Record<string, ConceptProgress> = {};
@@ -307,6 +319,7 @@ export function advanceDay(state: SchedulerState, pack: Pack): SchedulerState {
     links[id] = {
       strength: Math.max(STRENGTH_FLOOR, prev.strength - 0.06),
       lastSession: prev.lastSession,
+      lastTested: prev.lastTested,
     };
   }
   return {
@@ -361,14 +374,18 @@ export function reviewLinkIds(
     const id = linkId(l.from, l.to);
     const p = state.links[id] ?? emptyLink();
     const base = 1 - p.strength;
-    const daysSince = Math.max(0, state.day - p.lastSession);
+    // Recency counts REAL recall tests (days since this link was hidden),
+    // not rebuilds — otherwise every link shares lastSession and the same
+    // links get re-hidden day after day. Fresh states (lastTested 0) start
+    // stale, so the first review pass spreads across the whole set.
+    const daysSince = Math.max(0, state.day - p.lastTested);
     const recency = Math.min(1, daysSince / 5);
     // A connection the user has repeatedly struggled with returns sooner.
     const difficult = [l.from, l.to].some(
       (n) => (state.concepts[n]?.struggles ?? 0) > 0,
     );
     const score = 0.6 * base + 0.3 * recency + (difficult ? 0.15 : 0);
-    scored.push({ id, score, last: p.lastSession, strength: p.strength });
+    scored.push({ id, score, last: p.lastTested, strength: p.strength });
   }
   // Priority: weak/stale/difficult relationships first, then the least
   // recently rebuilt fill the remainder — so the requested count is always

@@ -429,7 +429,9 @@ World.create(
     const prevMastery = progress.lastResult?.mastery ?? null;
     const weakCount = strengths.filter((v) => v < MASTERED_THRESHOLD).length;
     // Strength updates: precise attribution (rejections) + assisted-recall gains.
-    progress = applySessionResult(progress, pack, rejections, hintedConcepts);
+    // The hidden links were this session's actual recall tests — stamp them so
+    // the review rotation moves on to fresh ones tomorrow.
+    progress = applySessionResult(progress, pack, rejections, hintedConcepts, config?.hiddenLinkIds ?? []);
     progress = recordSession(progress, {
       day: progress.day,
       rung: progress.sessionNum,
@@ -521,6 +523,30 @@ World.create(
       void saveProgress(progress);
       startSession();
     };
+
+    // Day briefing (day 2+): SAY what the adaptive schedule changed, or the
+    // player never feels it — hidden arrows appear silently and mastery
+    // drifts a point at a time.
+    if (progress.day > 1) {
+      const parts: string[] = [];
+      const n = hiddenLinkIds.length;
+      if (n > 0) parts.push(`${n} arrow${n === 1 ? '' : 's'} hidden — recall from memory`);
+      if (config.removedNodeIds.length > 0) {
+        const labels = config.removedNodeIds
+          .map((id) => pack.nodes.find((nd) => nd.id === id)?.label ?? id)
+          .slice(0, 2);
+        parts.push(`drill: ${labels.join(' + ')}`);
+      }
+      const focusLabel = weak[0]
+        ? pack.nodes.find((nd) => nd.id === weak[0])?.label
+        : undefined;
+      if (n === 0 && focusLabel) parts.push(`watch: ${focusLabel}`);
+      hud.showToast(
+        `Day ${progress.day}`,
+        parts.length > 0 ? parts.join(' · ') : 'Every arrow visible — build it clean',
+        'info',
+      );
+    }
 
     if (!world.getSystem(InteractionSystemImpl)) {
       world.registerSystem(InteractionSystemImpl); // IWSDK warns on duplicates

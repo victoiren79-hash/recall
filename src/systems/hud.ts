@@ -61,7 +61,7 @@ export interface SummaryInfo {
 export interface HudHandles {
   setPhase(phase: HudPhase, sessionNum: number): void;
   setProgress(litCount: number, total: number): void;
-  showToast(main: string, sub: string, tone: 'success' | 'error'): void;
+  showToast(main: string, sub: string, tone: 'success' | 'error' | 'info'): void;
   showSummary(info: SummaryInfo): void;
   hideSummary(): void;
   /** Drive the toast fade. Call once per frame with the frame delta in seconds. */
@@ -701,17 +701,18 @@ export function createHud(world: any, root: any): HudHandles {
   let toastElapsed = 0;
   let toastActive = false;
 
-  const drawToast = (main: string, sub: string, tone: 'success' | 'error'): void => {
+  const drawToast = (main: string, sub: string, tone: 'success' | 'error' | 'info'): void => {
     const { canvas, ctx } = toast;
     panelBase(ctx, canvas.width, canvas.height, 110);
 
     // Icon: filled circle + white check/cross. Errors stay warm amber —
-    // guidance, not alarm (spec §5D/§6).
+    // guidance, not alarm (spec §5D/§6). Info is a calm sky-blue dot —
+    // neutral day-briefing framing, neither praise nor correction.
     const cx = 170;
     const cy = canvas.height / 2;
     ctx.beginPath();
     ctx.arc(cx, cy, 78, 0, Math.PI * 2);
-    ctx.fillStyle = tone === 'success' ? '#22c55e' : '#e8a13c';
+    ctx.fillStyle = tone === 'success' ? '#22c55e' : tone === 'info' ? '#60a5fa' : '#e8a13c';
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = 18;
@@ -722,6 +723,12 @@ export function createHud(world: any, root: any): HudHandles {
       ctx.moveTo(cx - 36, cy + 4);
       ctx.lineTo(cx - 8, cy + 32);
       ctx.lineTo(cx + 38, cy - 28);
+    } else if (tone === 'info') {
+      // A bold "i": dot over a bar.
+      ctx.moveTo(cx, cy - 34);
+      ctx.lineTo(cx + 0.1, cy - 34);
+      ctx.moveTo(cx, cy - 6);
+      ctx.lineTo(cx, cy + 32);
     } else {
       ctx.moveTo(cx - 30, cy - 30);
       ctx.lineTo(cx + 30, cy + 30);
@@ -760,7 +767,7 @@ export function createHud(world: any, root: any): HudHandles {
       progressTargetFrac = total === 0 ? 0 : Math.max(0, Math.min(1, litCount / total));
     },
 
-    showToast(main: string, sub: string, tone: 'success' | 'error'): void {
+    showToast(main: string, sub: string, tone: 'success' | 'error' | 'info'): void {
       drawToast(main, sub, tone);
       toastPanel.material.visible = true;
       toastPanel.material.opacity = 0; // entrance ramps it in (tickToast)
