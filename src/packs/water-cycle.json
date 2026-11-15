@@ -1,0 +1,106 @@
+{
+  "id": "water-cycle",
+  "nodes": [
+    {
+      "id": "sun",
+      "label": "Sun heat",
+      "band": 5,
+      "fixed": true,
+      "icon": "sun"
+    },
+    {
+      "id": "evap",
+      "label": "Evaporation",
+      "band": 1,
+      "icon": "droplet"
+    },
+    {
+      "id": "vapor",
+      "label": "Water vapor",
+      "band": 2,
+      "icon": "vapor"
+    },
+    {
+      "id": "cooling",
+      "label": "Cooling",
+      "band": 3,
+      "icon": "snowflake"
+    },
+    {
+      "id": "cond",
+      "label": "Condensation",
+      "band": 3,
+      "icon": "condensation"
+    },
+    {
+      "id": "cloud",
+      "label": "Clouds",
+      "band": 4,
+      "icon": "cloud"
+    },
+    {
+      "id": "precip",
+      "label": "Precipitation",
+      "band": 2,
+      "icon": "rain"
+    },
+    {
+      "id": "collect",
+      "label": "Collection",
+      "band": 0,
+      "icon": "lake"
+    }
+  ],
+  "links": [
+    {
+      "from": "sun",
+      "to": "evap",
+      "type": "strong"
+    },
+    {
+      "from": "evap",
+      "to": "vapor",
+      "type": "strong"
+    },
+    {
+      "from": "vapor",
+      "to": "cooling",
+      "type": "medium"
+    },
+    {
+      "from": "cooling",
+      "to": "cond",
+      "type": "strong"
+    },
+    {
+      "from": "cond",
+      "to": "cloud",
+      "type": "strong"
+    },
+    {
+      "from": "cloud",
+      "to": "precip",
+      "type": "medium"
+    },
+    {
+      "from": "precip",
+      "to": "collect",
+      "type": "strong"
+    },
+    {
+      "from": "collect",
+      "to": "evap",
+      "type": "medium"
+    }
+  ],
+  "distractors": [
+    {
+      "label": "Clouds are smoke",
+      "why": "Clouds are tiny water droplets or ice crystals, not smoke."
+    },
+    {
+      "label": "Evaporation makes oxygen",
+      "why": "Evaporation turns liquid water into water vapor; no oxygen is produced."
+    }
+  ]
+}

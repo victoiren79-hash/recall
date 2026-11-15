@@ -2,7 +2,7 @@
 
 > **Rebuild what you know.** Recall turns forgetting into a structure you can see, and fix, with your hands.
 
-A hands-first, seated WebXR app for the **Meta VR Start Developer Competition 2026**.
+A hands-first, seated WebXR experience for the **Meta VR Start Developer Competition 2026**.
 **Track:** Productivity · **Division:** New Experience · **Built with:** Immersive Web SDK (IWSDK)
 
 ---
@@ -19,10 +19,11 @@ Reviewing flashcards checks isolated answers. You can pass every card and still 
 
 One session takes a few minutes.
 
-1. **See it.** A structure of connected concepts floats in front of you, with every link glowing.
-2. **Watch it break.** The concepts scramble. The links fade to faint ghosts, and empty sockets stay visible so you know where things can go.
-3. **Rebuild it.** Pinch a concept, move it, release it near a socket. It snaps in. When a placement satisfies a relationship, that link lights up. A wrong placement bounces back with a short explanation.
-4. **See what stuck.** A summary shows which links are strong (glowing) and which are weak (still ghosted). Weak links come back in your next session.
+1. **See it.** The water cycle floats in front of you, every connection glowing.
+2. **Watch it break.** The concepts scatter onto the table below; faint ghost lines keep the shape of the structure visible.
+3. **Rebuild it.** Point at a concept, squeeze the trigger to grab it, and release it near its socket. The card presses into place with a ripple, and the connection it satisfies **draws itself in** with a traveling light. A wrong placement glides back to the table with a short, friendly explanation.
+4. **Feel it complete.** When the last connection locks in, the structure plays its own melody: a comet races the loop sounding each connection’s note, a bloom swells behind the cards, the cards breathe in sequence, and everything resolves on a chord. Then the summary fades in: what stuck, and what came back weaker.
+5. **Come back tomorrow.** Memory fades a little each "day". Your weakest concepts return as the next session's challenge.
 
 There is one verb: **rebuild**.
 
@@ -35,14 +36,14 @@ Memorizing a layout would teach the room, not the subject. So the app does not c
 - A concept must sit at the correct **height** for what it is.
 - For every link `A → B` where both ends are placed, A must come **before** B along the flow direction of the arc.
 
-Any horizontal arrangement that satisfies both rules passes. Mirrored and rotated rebuilds are valid. This keeps Recall a learning tool and not a spatial jigsaw.
+The full placement rules live in one pure function (`validator.ts`) and are unit-tested, including the guarantee that the app never lets you enter an unsolvable state.
 
 ## 5. Spatial grammar
 
 | Axis | Meaning | Rule |
 |---|---|---|
 | **Height** | What kind of thing it is | Fixed and meaningful in every session. Never randomized. |
-| **Arc direction** | Flow / cause → effect | Curved arc within arm's reach in front of the seated player. May be rotated or mirrored between sessions. |
+| **Arc direction** | Flow / cause → effect | Curved arc within arm's reach in front of the seated player. Sways a few degrees between days — never mirrored, never random. |
 | **Fixed anchors** | The driver of the system | Placed by the app, not the player (e.g. the Sun in the water cycle). |
 
 ## 6. Built-in knowledge pack: the water cycle
@@ -64,32 +65,38 @@ The first pack is a connected system, not a four-step sequence.
 
 Height bands (0 lowest → 5 highest): Collection 0, Evaporation 1, Water vapor 2, Precipitation 2, Cooling 3, Condensation 3, Clouds 4, Sun heat 5.
 
-**Distractors** (wrong pieces mixed into the scramble) test understanding. Each one rejects with an explanation:
-
-- *"Clouds are smoke"*: clouds are tiny water droplets or ice crystals.
-- *"Evaporation makes oxygen"*: evaporation turns liquid water into water vapor.
+**Distractors** (wrong pieces mixed into the scramble, each rejecting with an explanation) are authored in the pack format and validated, but are not spawned in the current build.
 
 ## 7. Session progression
 
-| Session | Challenge |
-|---|---|
-| 1 | Complete structure, all relationships visible |
-| 2 | Rotated layout, 1 distractor, some links hidden |
-| 3 | Mirrored layout, 2 distractors, more hidden links |
-| 4+ | Weak links selectively removed, varied layouts |
+The difficulty rung responds to demonstrated mastery (evaluated from relationship strengths, weak counts, and the last completed session), not to the calendar:
 
-At most about one third of links are hidden at once, so the player always has enough clues to reason through the structure.
+| Rung | Challenge |
+|---|---|
+| 1 | Complete reference structure, all relationships visible |
+| 2 | Ring sways ±8°; 2 relationships hidden |
+| 3 | 3 relationships hidden |
+| 4 | Weakest concepts start unplaced on the table |
+
+- **Strong mastery → faster progression.** Clean, high-mastery sessions promote the rung.
+- **Repeated struggles → more reinforcement.** Weak concepts return as drills and escalation pauses until the user recovers.
+- **Overwhelmed → de-escalation.** If mastery collapses, the rung drops so the reconstruction gets easier while the drill targets the weak spots.
+- Hidden relationships never disappear entirely: they stay as a dim skeleton so the structure is always readable.
+- At most 3 concepts are ever removed, so sessions stay short.
+- **Restart** wipes the whole run (day 1, rung 1, full strength). **Next Day** fades memory a little and re-evaluates the rung.
 
 ## 8. Forgetting and the reason to come back
 
-Every link has its own strength value and review date on a local spaced-repetition schedule.
+Every link carries its own strength value (0–1), the day it was last rebuilt, and its hint history, on a local spaced-repetition schedule.
 
-- Correctly rebuilt links gain strength and their next review moves further out.
-- Missed links drop back and come due sooner.
-- Link brightness reflects strength. Weak or overdue links fade to **ghosts**, never to invisible. There is always something to rebuild toward.
-- Later sessions challenge only weak links, so repeat sessions are short and never a full rebuild.
+- Correctly rebuilt links gain strength (+0.08; +0.04 when a hint assisted the recall); links involved in bounced placements lose it (−0.12).
+- Each simulated day, memory decays a little (−0.06) — connection brightness reflects strength, so you can literally see what is fading.
+- **Review scheduling:** hidden relationships are chosen by review priority — weak relationships return sooner, strong ones earn progressively longer intervals, and relationships you have repeatedly struggled with come back more often. Assisted (hint-covered) recall is recorded separately from independent recall.
+- Concepts whose weakest link drops below 0.5 are selected as the next session's drill, capped at 3 per session.
+- The last 12 completed sessions are kept as history, powering the mastery trend in the summary.
+- Progress (day, rung, per-link strengths, concept profile, history) persists in IndexedDB and survives closing the app.
 
-A **"next day" control** in the demo build fast-forwards the scheduler so progression can be seen without waiting real days.
+A **"Next Day" control** fast-forwards the scheduler so progression can be seen without waiting real days. **"Restart"** resets the entire run.
 
 ## 9. Why this belongs in VR
 
@@ -97,20 +104,25 @@ A **"next day" control** in the demo build fast-forwards the scheduler so progre
 - **Hands do the learning.** Placing each concept physically ties the action to the relationship.
 - **Seated and compact.** Everything sits within arm's reach, so the airplane-seat test passes.
 
-## 10. Hands-first and accessibility
+## 10. Input and comfort
 
-- Entire experience completes **without a controller**. Pinch-and-place is the only required input.
-- Large cards, large sockets, generous snap radius, no timing windows, no precision aiming. Designed to survive hand-tracking jitter.
-- **Gaze + dwell** alternative for players who cannot pinch (IWSDK treats gaze as a pointer).
-- High-contrast mode.
-- No lengthy onboarding. The first scramble demonstrates the mechanic.
+- **Controllers and hand tracking** both work through the same grab pipeline (IWSDK `DistanceGrabbable`): aim, squeeze, release.
+- The laser cursor is always visible with a tip dot in empty space, so aiming is never a guess.
+- Cards float to a fixed, readable offset in front of the grabbing hand — sockets stay reachable beyond arm's length.
+- Large cards, generous snap radius, no timing windows, no precision aiming, no forced rotation. Designed to survive hand-tracking jitter.
+- Hover, grab, and placement all respond with spring-based micro-animations; placement ends with an iOS-style ripple blooming out of the card.
+- The completed structure celebrates with a comet racing the loop, a shockwave, a card wave, and a light bloom — then the summary fades in. Never fireworks.
+- **A Hint control during rebuilds**: escalating, contextual assistance — from a gentle “start here” socket highlight to an explicit relationship clue — requested by the user, never automatic, and recorded so hinted recalls count for less than independent ones.
+- **Procedural sound design** — every interaction has a quiet, spatially-placed voice: a tick on grab, a warm thock on placement, the pentatonic melody climbing as connections light up, a gentle bump on mistakes, and the completion sequence resolving on a literal chord. Fully synthesized in the Web Audio API — zero audio assets, nothing to license.
+
+Planned after the core loop: gaze-and-dwell fallback and a high-contrast mode.
 
 ## 11. Competition fit
 
 | Requirement | How Recall meets it |
 |---|---|
-| Hands-first | Fully playable with pinch only, no controller pairing |
-| Seated-optimized | Arc and sockets within a 2-foot radius |
+| Hands-first | Playable with controllers or hand tracking; pinch-and-place is the only required input |
+| Seated-optimized | Cycle and tray within a 2-foot radius, wrapped around the seated player |
 | Easy in / easy out | Cold start straight into a pack; first complete moment in about 60 seconds; sessions of a few minutes; progress saved automatically |
 | Original, not a wrapper | No third-party service. All logic and content are built in. |
 | Offline | No cloud calls. Judges can run it on a constrained network. |
@@ -122,23 +134,29 @@ A **"next day" control** in the demo build fast-forwards the scheduler so progre
 - **Immersive Web SDK (IWSDK)** on top of Three.js and an ECS
 - **TypeScript**, bundled with Vite (via the IWSDK scaffold)
 - **IndexedDB** for progress and spaced-repetition state
+- **Vitest** for the pure-logic test suite (layout, validator, scheduler)
 - **Hosting:** GitHub Pages or Vercel (static, no server)
 - **Requires:** Node.js v20.19.0 or higher
 
-### Architecture (planned)
+## 13. Architecture
 
 | Module | Responsibility |
 |---|---|
-| `pack` loader | Reads a pack JSON and validates its shape |
-| `layout` | Builds the arc and sockets from height bands; applies rotation / mirroring |
-| `interaction` | Pinch-grab, move, release, snap, and gaze-dwell fallback |
-| `validator` | The single rule function: correct height band and correct flow order |
-| `feedback` | Link lighting, bounce-back, distractor explanations |
-| `scheduler` | Per-link strength and next-review dates; "next day" fast-forward |
-| `store` | IndexedDB persistence |
-| `summary` | End-of-session strong / weak link report |
+| `src/index.ts` | Conductor: boots the world, runs the session machine (SEE → REBUILD → SUMMARY), XR anchoring, cursor visuals |
+| `src/packs/loadPack.ts` | Reads a pack JSON and validates its shape |
+| `src/systems/layout.ts` | Builds sockets, anchors, and the tray from the pack; sways between sessions |
+| `src/systems/spawn.ts` | Builds the SEE-state scene: cards, sockets, links, tray, room, HUD anchors; owns the completion sequence |
+| `src/systems/interaction.ts` | Grab, move, release, snap-or-return, hover/grab/placement feedback, link lighting, progress |
+| `src/systems/validator.ts` | The single rule function: correct height band and correct flow order |
+| `src/systems/scheduler.ts` | Per-link strength, daily decay, weak-node selection, day ladder |
+| `src/systems/session.ts` | Deterministic per-day session variety (hidden links, sway, weak drill) |
+| `src/systems/store.ts` | IndexedDB persistence |
+| `src/systems/hud.ts` | Canvas-textured panels: title, instructions, progress, menu, summary, toasts |
+| `src/systems/motion.ts` | Shared motion language: damping, springs, easings |
+| `src/systems/audio.ts` | Procedural Web Audio sound design: spatial voices, pentatonic link notes, completion chord |
+| `src/systems/audio.ts` | Procedural Web Audio sound design: spatial voices, pentatonic link notes, completion chord |
 
-## 13. Pack format
+## 14. Pack format
 
 Packs are plain JSON, kept separate from code.
 
@@ -163,82 +181,85 @@ Packs are plain JSON, kept separate from code.
 - `links`: relationships the validator checks
 - `distractors`: wrong pieces and the reason shown when rejected
 
-A plain 2D page for authoring custom packs from simple text lines is planned after the core loop works.
-
-## 14. Project structure
+## 15. Project structure
 
 ```
 recall/
-├── .github/                 # GitHub config
-├── .iwsdk/                  # IWSDK project files
-├── .vscode/                 # editor settings
 ├── public/                  # static files served as-is
+├── scripts/                 # headless verification suite (Playwright + IWSDK emulator)
 ├── src/
-│   ├── packs/               # knowledge packs, e.g. water-cycle.json (planned)
-│   ├── systems/             # interaction, layout, validator, scheduler (planned)
-│   ├── store/               # IndexedDB persistence (planned)
-│   └── ...                  # IWSDK starter files
+│   ├── index.ts             # conductor: boot, session machine, XR anchoring, cursors
+│   ├── packs/               # knowledge packs + loader/validator
+│   ├── systems/             # layout, spawn, interaction, validator, scheduler,
+│   │                        #   session, store, hud, motion (+ unit tests)
+│   └── components.ts        # ECS component definitions
 ├── index.html
 ├── iwsdk.config.json        # project authority: scene, assets, components, world
 ├── vite.config.ts
+├── vitest.config.ts
 ├── tsconfig.json
 ├── package.json
 ├── LICENSE.txt
 └── README.md
 ```
 
-The assistant config files are generated by the IWSDK starter and are not part of the shipped build.
-
-## 15. Run locally
+## 16. Run locally
 
 ```bash
 npm install        # install dependencies
-npm run dev        # start the dev session; prints the local URL
+npm run dev        # start the dev session; opens https://localhost:8081
+npx vitest run     # run the pure-logic test suite
 ```
 
-On a desktop browser, IWSDK provides mouse-and-keyboard emulation of a headset, so no VR hardware is needed to develop or try it. Use the URL printed by `npm run dev`, since the port can change.
+On a desktop browser, IWSDK provides an emulator for the headset, so no VR hardware is needed to develop or try it. **Enter XR** from the in-app button (or `__recall.launch()` from the console) to test the immersive layout.
 
-## 16. Scope
+### Headless verification
+
+With the dev server running on `https://localhost:8081`:
+
+```bash
+node scripts/verify-v9-fixes.mjs    # placement rules + full rebuild via real emulator grabs
+node scripts/verify-v13-summary.mjs # XR layout stability, summary placement, completion glow
+node scripts/verify-v14-loop.mjs    # day ladder, weak-card drill, missing-link rebuild, restart reset
+node scripts/verify-v15-completion.mjs # the completion sequence arms, runs, and settles fully lit
+node scripts/grab-e2e.mjs           # real trigger-press grab → carry → snap, plus HUD reachability
+```
+
+Each script loads the app in a headless Chromium session with the IWSDK emulator, drives real input, and exits non-zero on failure. Screenshots land in `.verify/`.
+
+## 17. Scope
 
 **In scope**
 
 - One polished built-in pack (water cycle)
-- Pinch-and-place with forgiving snap zones
+- Point-and-place with forgiving snap zones (controllers and hand tracking)
 - Relationship validation and visual feedback
-- Distractors with explanations
 - Local spaced-repetition scheduling and ghosted weak links
-- Gaze-dwell fallback and high-contrast mode
-- Simple 2D format for custom packs (after the core loop)
+- Completion celebration, hover/grab micro-interactions, ambient detail, procedural sound
 
 **Out of scope**
 
+- Distractor cards in the current build (pack format supports them; visuals disabled)
 - AI-generated content or any cloud inference
 - Multiplayer
 - Room customization
 - A large content library
 - Passthrough / mixed reality in this version
+- Gaze-dwell fallback and high-contrast mode (planned)
 
-## 17. Known limitations
+## 18. Known limitations
 
-- **Never tested on real hands.** Hand-tracking jitter, comfort over a full session, and spatial audio are only validated in the emulator. Interactions are designed with large targets for this reason.
-- A fixed cycle can be memorized by order. Rotation, mirroring, hidden links, and distractors from session 2 onward are the mitigation.
+- **Emulator-validated.** Interaction comfort, hand-tracking jitter, and comfort over a full session are validated in the IWSDK emulator and desktop browser, not yet on a physical headset. Interactions use large targets and generous snap radii for this reason.
+- A fixed cycle can be memorized by order. Sway, hidden links, and weak-card drills from day 2 onward are the mitigation.
 - Knowledge packs are authored by hand. There is no automatic extraction from text.
 
-## 18. Roadmap
+## 19. Roadmap
 
 - More built-in packs (other systems with clear cause / dependency structure)
 - Custom-pack authoring page with sharing
 - Additional relationship types
+- Re-enable distractor cards with polished visuals
 - Mixed reality mode where the room's real surfaces become anchors
-
-## 19. Submission checklist
-
-- [ ] Playable build live at a public URL (WebXR) and still live through judging
-- [ ] Demo video under 3 minutes, public on YouTube or Vimeo, leading with the first-minute rebuild
-- [ ] Submission form: name, tagline (140 chars or less), track, division, description (about 500 words), team details
-- [ ] Description covers inspiration, how it was built, and future plans
-- [ ] Hand-interaction description (optional field)
-- [ ] No third-party logos, brand names, or identifiable people in the app or video
 
 ## 20. Credits and license
 
@@ -246,8 +267,8 @@ On a desktop browser, IWSDK provides mouse-and-keyboard emulation of a headset, 
 
 **License:** The source code in this repository is released under the [MIT License](LICENSE.txt).
 
-**Third-party software:** Recall is built on the Immersive Web SDK, Three.js, and other open-source packages. They are installed from npm and not copied into this repository, and each stays under its own license. Development-only tooling (for example `@meta-quest/metavr`) is not part of the shipped build.
+**Third-party software:** Recall is built on the Immersive Web SDK, Three.js, and other open-source packages. They are installed from npm and not copied into this repository, and each stays under its own license.
 
-**Assets:** The pack content, distractor explanations, and visuals are original. [TODO: list any third-party assets (fonts, audio, models) and their licenses before submission.]
+**Assets:** The pack content, explanations, and visuals are original. [TODO: list any third-party assets (fonts, audio, models) and their licenses before submission.]
 
 **Competition:** Entered in the Meta VR Start Developer Competition 2026. Under the Official Rules, the author keeps ownership of the entry and grants the sponsor the rights described there for evaluation and promotion.

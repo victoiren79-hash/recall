@@ -1,11 +1,39 @@
+// src/components.ts
+// Component declarations only. No system, DOM, or renderer imports.
+
+import { createComponent, defineComponents } from '@iwsdk/core';
+
 /**
- * Copyright (c) Meta Platforms, Inc. and affiliates.
- *
- * This source code is licensed under the MIT license found in the
- * LICENSE file in the root directory of this source tree.
+ * Card — a movable concept card (or distractor) placed by the player.
  */
+export const Card = createComponent('Card', {
+  nodeId: { type: 'String' as const, default: '' },
+  label: { type: 'String' as const, default: '' },
+  band: { type: 'Int32' as const, default: 0 },
+  fixed: { type: 'Boolean' as const, default: false },
+  kind: { type: 'String' as const, default: 'card' },
+  state: { type: 'String' as const, default: 'free' },
+  socketIndex: { type: 'Int32' as const, default: -1 },
+});
 
-import { defineComponents } from '@iwsdk/core';
-import { Robot } from './robot-component.js';
+/**
+ * Socket — an empty slot on the arc, one per movable concept.
+ */
+export const Socket = createComponent('Socket', {
+  index: { type: 'Int32' as const, default: 0 },
+  band: { type: 'Int32' as const, default: 0 },
+  order: { type: 'Int32' as const, default: 0 },
+  occupant: { type: 'String' as const, default: '' },
+});
 
-export default defineComponents([Robot]);
+/**
+ * LinkLine — a line between two concept positions.
+ */
+export const LinkLine = createComponent('LinkLine', {
+  linkId: { type: 'String' as const, default: '' },
+  strength: { type: 'Float32' as const, default: 1 },
+  lit: { type: 'Boolean' as const, default: false },
+  hidden: { type: 'Boolean' as const, default: false },
+});
+
+export default defineComponents([Card, Socket, LinkLine]);

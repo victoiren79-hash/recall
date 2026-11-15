@@ -17,10 +17,13 @@
       }
     },
     "input": {
-      "canvasPointerEvents": true
+      "canvasPointerEvents": {
+        "enabled": true,
+        "activeDuringXR": true
+      }
     },
     "render": {
-      "fov": 70,
+      "fov": 66,
       "near": 0.001,
       "far": 200,
       "camera": {
@@ -31,15 +34,13 @@
         ],
         "lookAt": [
           0,
-          0.95,
-          -1.95
+          1.55,
+          -2
         ]
       }
     },
     "features": {
-      "locomotion": {
-        "useWorker": true
-      },
+      "locomotion": false,
       "grabbing": true,
       "physics": false,
       "sceneUnderstanding": false,

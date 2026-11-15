@@ -5,7 +5,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { createSystem, UIKitMLAsset, VisibilityState } from '@iwsdk/core';
+import { createSystem, RayInteractable, UIKitMLAsset, VisibilityState } from '@iwsdk/core';
 
 export class PanelSystem extends createSystem({}) {
   init(): void {
@@ -14,6 +14,13 @@ export class PanelSystem extends createSystem({}) {
     const exitButton = panel?.getElementById('exit-button');
     if (xrButton == null || exitButton == null) {
       return;
+    }
+    // Tag the panel's entity so XR controller rays can reach it: without
+    // RayInteractable the panel is absent from scene.rayDescendants and its
+    // buttons never receive clicks during an immersive session.
+    const panelEntity = this.world.getSceneEntity('welcome-panel');
+    if (panelEntity && !panelEntity.hasComponent(RayInteractable)) {
+      panelEntity.addComponent(RayInteractable);
     }
     if (!this.world.xrEnabled) {
       xrButton.setProperties({ display: 'none' });
