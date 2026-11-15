@@ -467,6 +467,7 @@ World.create(
       masteryPct,
       masteryDelta,
       nextDrill: config.removedNodeIds.length > 0,
+      rejected: rejections.length,
     };
     // The summary appears AFTER the sequence finishes — the comet, bloom,
     // shockwave and card wave are the star of the completion moment, not a

@@ -56,6 +56,8 @@ export interface SummaryInfo {
   masteryDelta: number | null;
   /** True when the next session adapts into a weak-concept drill. */
   nextDrill: boolean;
+  /** Rejected placements this session (drives the honest closing line). */
+  rejected: number;
 }
 
 export interface HudHandles {
@@ -614,6 +616,16 @@ export function createHud(world: any, root: any): HudHandles {
           ctx.fillText(`• ${line}`, 80, y);
           y += 62;
         }
+      } else if (info.rejected > 0) {
+        // Slips with no relationship evidence (occupied/out-of-band drops):
+        // acknowledge them honestly instead of claiming a perfect run.
+        ctx.fillStyle = 'rgba(170, 196, 235, 0.9)';
+        ctx.font = FONT_STACK.replace('{S}', '52');
+        ctx.fillText(
+          `${info.rejected} slip${info.rejected === 1 ? '' : 's'} — tomorrow's mix shifts`,
+          60,
+          396,
+        );
       } else {
         ctx.fillStyle = 'rgba(126, 240, 192, 0.95)';
         ctx.font = FONT_STACK.replace('{S}', '52');
