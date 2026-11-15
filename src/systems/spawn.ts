@@ -2150,10 +2150,10 @@ export function spawnStructure(
   // depths change — a hard-coded one silently pushed the ring behind the
   // player when the layout moved from a deep ring to the current ~0.8 m one.
   const XR_SCALE = 0.75;
-  // Comfortable seated viewing distance, with clearance for the hands: any
-  // closer and the player's controllers sweep THROUGH the cycle when they
-  // turn left/right or reach across the ring.
-  const XR_CYCLE_DEPTH_M = 0.75;
+  // Balanced seated distance: near enough to read the card labels, far
+  // enough that turning controllers don't sweep through the ring. Tuned
+  // between 0.4 (hands clipped the sockets) and 0.75 (labels too small).
+  const XR_CYCLE_DEPTH_M = 0.6;
 
   const applyXRLayout = (isXR: boolean): void => {
     // Shrink to near-physical size and sit the ring at the comfortable depth
