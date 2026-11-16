@@ -13,7 +13,12 @@ const browser = await chromium.launch({
   headless: true,
   args: ['--enable-unsafe-swiftshader', '--ignore-certificate-errors'],
 });
-const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 900 } });
+// RECORD=1 node scripts/<this>.mjs  → also saves a WebM video of the run
+// (deterministic demo footage for the Devpost video; no OBS needed).
+const recordVideo = process.env.RECORD
+  ? { recordVideo: { dir: '.verify/videos', size: { width: 1600, height: 900 } } }
+  : {};
+const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 900 }, ...recordVideo });
 const page = await context.newPage();
 const errors = [];
 page.on('pageerror', (e) => errors.push('PAGEERROR: ' + e.message));
