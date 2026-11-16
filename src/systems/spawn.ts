@@ -79,6 +79,8 @@ export interface SpawnOptions {
 export interface LinkMaterialPair {
   core: MeshBasicMaterial;
   glow: MeshBasicMaterial;
+  /** True for the golden anchor link — kept gold in both contrast palettes. */
+  anchor?: boolean;
 }
 
 export interface SpawnHandles {
@@ -97,6 +99,8 @@ export interface SpawnHandles {
    * flat page.
    */
   applyXRLayout: (isXR: boolean) => void;
+  /** Toggle the WCAG-AA high-contrast palette (cards/sockets/links) live. */
+  setHighContrast: (on: boolean) => void;
   sharedGeometries: BufferGeometry[];
   sharedMaterials: Material[];
   sharedTextures: Texture[];
@@ -454,27 +458,64 @@ const ICON_PAINTERS: Record<string, IconPainter> = {
  * thin glowing border, one big painted icon, and clear white text beneath it.
  * No boxy fills, no label pill — one image, easy clear text.
  */
-function makeCardTexture(
+/**
+ * Card face palette. The default is the frosted-glass look; the contrast
+ * set swaps to a WCAG-AA combination — near-opaque dark body, pure-white
+ * border and label (≈18:1), thicker stroke — without touching layout.
+ */
+interface CardFacePalette {
+  bg: string;
+  border: string;
+  borderWidth: number;
+  scrimTop: string;
+  scrimBottom: string;
+}
+const CARD_PALETTE_DEFAULT: CardFacePalette = {
+  bg: 'rgba(16, 32, 64, 0.32)',
+  border: 'rgba(170, 216, 255, 0.75)',
+  borderWidth: 4,
+  scrimTop: 'rgba(6, 10, 20, 0)',
+  scrimBottom: 'rgba(6, 10, 20, 0.5)',
+};
+const CARD_PALETTE_CONTRAST: CardFacePalette = {
+  bg: 'rgba(4, 10, 22, 0.96)',
+  border: '#ffffff',
+  borderWidth: 7,
+  scrimTop: 'rgba(2, 5, 12, 0)',
+  scrimBottom: 'rgba(2, 5, 12, 0.72)',
+};
+
+/** High-contrast mode (WCAG-AA on the dark scene): additive, off by default.
+ * Toggled from the HUD; applied live via SpawnHandles.setHighContrast; read
+ * at spawn time so new sessions pick it up. */
+export const contrastState = { on: false };
+
+// Palette pairs [normal, contrast]: sockets and cycle links re-tint on
+// toggle; anchor links stay gold in both (already max contrast).
+const SOCKET_COLOR_NORMAL = 0x6fd2ff;
+const SOCKET_COLOR_CONTRAST = 0xffd400;
+const LINK_CORE_NORMAL = 0x9fd0ff;
+const LINK_CORE_CONTRAST = 0xffffff;
+const LINK_GLOW_NORMAL = 0x2e9fff;
+const LINK_GLOW_CONTRAST = 0xffd400;
+
+/** Paint one card face (initial paint and contrast repaint share this). */
+function paintCardCanvas(
+  ctx: CanvasRenderingContext2D,
   label: string,
   icon: string | undefined,
-  maxAnisotropy: number,
-): CanvasTexture {
-  const canvas = document.createElement('canvas');
-  canvas.width = CARD_TEX_W;
-  canvas.height = CARD_TEX_H;
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('spawn: 2D canvas context unavailable');
-
+  palette: CardFacePalette,
+): void {
   ctx.clearRect(0, 0, CARD_TEX_W, CARD_TEX_H);
 
   // Frosted glass with ONE clean thin border — crisp stroke, no glow, no
   // double lines (user: "clean one line borders").
-  ctx.fillStyle = 'rgba(16, 32, 64, 0.32)';
+  ctx.fillStyle = palette.bg;
   ctx.beginPath();
   ctx.roundRect(24, 24, CARD_TEX_W - 48, CARD_TEX_H - 48, 84);
   ctx.fill();
-  ctx.lineWidth = 4;
-  ctx.strokeStyle = 'rgba(170, 216, 255, 0.75)';
+  ctx.lineWidth = palette.borderWidth;
+  ctx.strokeStyle = palette.border;
   ctx.stroke();
 
   // Icon: big painted concept art centred in the upper portion.
@@ -497,8 +538,8 @@ function makeCardTexture(
   // Soft scrim behind the label: a gentle shade grounding the text into the
   // glass — NOT a pill or box (user rejected that), just material shading.
   const scrim = ctx.createLinearGradient(0, CARD_TEX_H * 0.6, 0, CARD_TEX_H - 24);
-  scrim.addColorStop(0, 'rgba(6, 10, 20, 0)');
-  scrim.addColorStop(1, 'rgba(6, 10, 20, 0.5)');
+  scrim.addColorStop(0, palette.scrimTop);
+  scrim.addColorStop(1, palette.scrimBottom);
   ctx.fillStyle = scrim;
   ctx.beginPath();
   ctx.roundRect(24, CARD_TEX_H * 0.6, CARD_TEX_W - 48, CARD_TEX_H * 0.4 - 24, [0, 0, 84, 84]);
@@ -522,7 +563,29 @@ function makeCardTexture(
   ctx.textBaseline = 'middle';
   ctx.fillText(label, CARD_TEX_W / 2, CARD_TEX_H * 0.83);
   ctx.restore();
+}
 
+/** The palette a face was last painted with — contrast repaints swap it. */
+export interface CardFaceEntry {
+  texture: CanvasTexture;
+  label: string;
+  icon: string | undefined;
+  contrast: boolean;
+}
+
+/** Create one card face texture (initial paint; repaints go through repaintCardFace). */
+function makeCardTexture(
+  label: string,
+  icon: string | undefined,
+  maxAnisotropy: number,
+  contrast = false,
+): CanvasTexture {
+  const canvas = document.createElement('canvas');
+  canvas.width = CARD_TEX_W;
+  canvas.height = CARD_TEX_H;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('spawn: 2D canvas context unavailable');
+  paintCardCanvas(ctx, label, icon, contrast ? CARD_PALETTE_CONTRAST : CARD_PALETTE_DEFAULT);
   const texture = new CanvasTexture(canvas);
   texture.colorSpace = SRGBColorSpace;
   texture.anisotropy = maxAnisotropy;
@@ -1038,9 +1101,17 @@ export function spawnStructure(
   // room reads as a place, not a backdrop.
   const unitBox = new BoxGeometry(1, 1, 1);
   sharedGeometries.push(unitBox);
+  const propMaterialCache = new Map<string, MeshStandardMaterial>();
   const propMaterial = (color: number, roughness = 0.85): MeshStandardMaterial => {
-    const m = new MeshStandardMaterial({ color, roughness, metalness: 0.04 });
-    sharedMaterials.push(m);
+    // Props repeat colors (shelf boards, books) — cache by color|roughness so
+    // the scene holds one material per distinct combination, not per mesh.
+    const key = `${color}-${roughness}`;
+    let m = propMaterialCache.get(key);
+    if (!m) {
+      m = new MeshStandardMaterial({ color, roughness, metalness: 0.04 });
+      sharedMaterials.push(m);
+      propMaterialCache.set(key, m);
+    }
     return m;
   };
   const propMesh = (
@@ -1251,7 +1322,7 @@ export function spawnStructure(
     socketIndex: number,
     extra: { nodeId: string; kind: string; state: string; band?: number; inTray?: boolean },
   ): any => {
-    const texture = makeCardTexture(nodeOrLabel.label, nodeOrLabel.icon, maxAnisotropy);
+    const texture = makeCardTexture(nodeOrLabel.label, nodeOrLabel.icon, maxAnisotropy, contrastState.on);
     sharedTextures.push(texture);
 
     const material = new MeshBasicMaterial({
@@ -1270,7 +1341,7 @@ export function spawnStructure(
     const bodyMaterial = new MeshBasicMaterial({
       color: 0x9cc8ff,
       transparent: true,
-      opacity: 0.12,
+      opacity: contrastState.on ? 0.3 : 0.12,
     });
     sharedMaterials.push(bodyMaterial);
     const body = new Mesh(cardBodyGeometry, bodyMaterial);
@@ -1292,8 +1363,18 @@ export function spawnStructure(
     // by name, letting hand sequences target cards/sockets precisely.
     tile.name = `card-${extra.nodeId}`;
     // Material handles for the interaction polish layer (hover glow, grab
-    // compression, snap flash, amber rejection tint — spec §3/§5).
-    (entity as any).cardMats = { face: material, body: bodyMaterial };
+    // compression, snap flash, amber rejection tint — spec §3/§5). The face
+    // entry also lets contrast mode repaint the texture in place.
+    (entity as any).cardMats = {
+      face: material,
+      body: bodyMaterial,
+      faceEntry: {
+        texture,
+        label: nodeOrLabel.label,
+        icon: nodeOrLabel.icon,
+        contrast: contrastState.on,
+      } satisfies CardFaceEntry,
+    };
     entity.addComponent(Card, {
       nodeId: extra.nodeId,
       label: nodeOrLabel.label,
@@ -1501,9 +1582,18 @@ export function spawnStructure(
 
     // Golden for the sun link, saturated luminous blue for the water cycle
     // (reference: deep glowing blue with a bright core, direction unmistakable).
+    // Contrast mode: pure-white cores with amber glow — max separation.
     const fromAnchor = pack.nodes.find((n) => n.id === link.from)?.fixed ?? false;
-    const coreColor = fromAnchor ? 0xffd98a : 0x9fd0ff;
-    const glowColor = fromAnchor ? 0xffb84d : 0x2e9fff;
+    const coreColor = fromAnchor
+      ? 0xffd98a
+      : contrastState.on
+        ? LINK_CORE_CONTRAST
+        : LINK_CORE_NORMAL;
+    const glowColor = fromAnchor
+      ? 0xffb84d
+      : contrastState.on
+        ? LINK_GLOW_CONTRAST
+        : LINK_GLOW_NORMAL;
 
     const coreMaterial = new MeshBasicMaterial({
       color: coreColor,
@@ -1547,7 +1637,7 @@ export function spawnStructure(
       glowMaterial.opacity = 0.02;
     }
     linksById.set(id, coreEntity);
-    linkMaterialsById.set(id, { core: coreMaterial, glow: glowMaterial });
+    linkMaterialsById.set(id, { core: coreMaterial, glow: glowMaterial, anchor: fromAnchor });
   };
 
   for (const link of pack.links) buildLink(link);
@@ -2167,6 +2257,37 @@ export function spawnStructure(
     // original arc positions in both modes, exactly as they always sat.
   };
 
+  /** Repaint a card face in place (contrast toggle) — same canvas, same texture. */
+  const repaintCardFace = (entry: CardFaceEntry, contrast: boolean): void => {
+    const canvas = entry.texture.image as HTMLCanvasElement | undefined;
+    const ctx = canvas?.getContext('2d');
+    if (!ctx) return;
+    paintCardCanvas(ctx, entry.label, entry.icon, contrast ? CARD_PALETTE_CONTRAST : CARD_PALETTE_DEFAULT);
+    entry.contrast = contrast;
+    entry.texture.needsUpdate = true;
+  };
+
+  // High-contrast toggle (accessibility, additive): swaps sockets, cycle
+  // links, and every card face to the WCAG-AA palette. The default look is
+  // untouched until called with true; new spawns read contrastState directly.
+  const setHighContrast = (on: boolean): void => {
+    contrastState.on = on;
+    socketMaterial.color.setHex(on ? SOCKET_COLOR_CONTRAST : SOCKET_COLOR_NORMAL);
+    for (const [, entity] of cardsByNodeId) {
+      const mats = (entity as any).cardMats as
+        | { face: MeshBasicMaterial; body: MeshBasicMaterial; faceEntry: CardFaceEntry }
+        | undefined;
+      if (!mats) continue;
+      mats.body.opacity = on ? 0.3 : 0.12;
+      if (mats.faceEntry.contrast !== on) repaintCardFace(mats.faceEntry, on);
+    }
+    for (const [, mats] of linkMaterialsById) {
+      if (mats.anchor) continue; // anchor links stay gold in both palettes
+      mats.core.color.setHex(on ? LINK_CORE_CONTRAST : LINK_CORE_NORMAL);
+      mats.glow.color.setHex(on ? LINK_GLOW_CONTRAST : LINK_GLOW_NORMAL);
+    }
+  };
+
   return {
     cardsByNodeId,
     socketsByIndex,
@@ -2175,6 +2296,7 @@ export function spawnStructure(
     traySpawnSlots,
     floatItems,
     applyXRLayout,
+    setHighContrast,
     sharedGeometries,
     sharedMaterials,
     sharedTextures,

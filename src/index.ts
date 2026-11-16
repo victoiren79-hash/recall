@@ -25,7 +25,7 @@ import projectOptions from 'virtual:iwsdk-project';
 import { PanelSystem } from './panel.js';
 import { loadBundledPack } from './packs/loadPack';
 import { buildLayout } from './systems/layout';
-import { spawnStructure, disposeSpawn, type HeadPose, type SpawnHandles } from './systems/spawn';
+import { contrastState, spawnStructure, disposeSpawn, type HeadPose, type SpawnHandles } from './systems/spawn';
 import { createHud, type HudHandles, type HudPhase } from './systems/hud';
 import { InteractionSystemImpl } from './systems/interaction';
 import {
@@ -46,6 +46,49 @@ import { loadProgress, saveProgress } from './systems/store';
  * refresher and moves on quickly. */
 const SEE_DURATION_MS = 3000;
 const SEE_FIRST_MS = 5000;
+
+// --- Flags store (tiny, separate DB — store.ts owns 'recall-store') ---
+// Additive preferences only: intro-seen marker, high-contrast toggle.
+const FLAGS_DB = 'recall-flags';
+const flagGet = (key: string): Promise<unknown> =>
+  new Promise((resolve) => {
+    try {
+      const req = indexedDB.open(FLAGS_DB, 1);
+      req.onupgradeneeded = () => {
+        if (!req.result.objectStoreNames.contains('kv')) req.result.createObjectStore('kv');
+      };
+      req.onsuccess = () => {
+        try {
+          const get = req.result.transaction('kv', 'readonly').objectStore('kv').get(key);
+          get.onsuccess = () => resolve(get.result);
+          get.onerror = () => resolve(undefined);
+        } catch {
+          resolve(undefined);
+        }
+      };
+      req.onerror = () => resolve(undefined);
+    } catch {
+      resolve(undefined);
+    }
+  });
+const flagSet = (key: string, value: unknown): void => {
+  try {
+    const req = indexedDB.open(FLAGS_DB, 1);
+    req.onupgradeneeded = () => {
+      if (!req.result.objectStoreNames.contains('kv')) req.result.createObjectStore('kv');
+    };
+    req.onsuccess = () => {
+      try {
+        req.result.transaction('kv', 'readwrite').objectStore('kv').put(value, key);
+      } catch {
+        // Non-fatal: flags are preferences, not progress.
+      }
+    };
+  } catch {
+    // Non-fatal.
+  }
+};
+let skipIntro = false;
 
 World.create(
   document.getElementById('scene-container') as HTMLDivElement,
@@ -84,7 +127,9 @@ World.create(
     // 'sessionstart' after that reset, so re-apply the supersampled size
     // here. Detection: IWER's XRWebGLLayer reports framebuffer === null
     // (native layers always expose a real framebuffer).
-    const XR_SUPERSAMPLE = Math.max(Math.min(window.devicePixelRatio || 1, 2), 1.5);
+    // Capped at 1.5 for frame-budget safety on XR present (the flat page
+    // keeps its own sharper ratio above) — never supersample past it.
+    const XR_SUPERSAMPLE = Math.min(window.devicePixelRatio || 1, 1.5);
     renderer.xr?.addEventListener?.('sessionstart', () => {
       try {
         const layer = renderer.xr?.getBaseLayer?.();
@@ -374,6 +419,9 @@ World.create(
 
   const saved = await loadProgress();
   let progress: SchedulerState = saved ? normalizeState(saved, pack) : initSchedulerState(pack);
+  // Preferences before the first session spawns (intro cue + contrast palette).
+  skipIntro = Boolean(await flagGet('skipIntro'));
+  contrastState.on = Boolean(await flagGet('contrast'));
 
   let config: SessionConfig;
   let spawnHandles: SpawnHandles | null = null;
@@ -524,6 +572,11 @@ World.create(
       void saveProgress(progress);
       startSession();
     };
+    hud.onToggleContrast = () => {
+      const next = !contrastState.on;
+      spawnHandles?.setHighContrast(next);
+      flagSet('contrast', next);
+    };
 
     // Day briefing (day 2+): SAY what the adaptive schedule changed, or the
     // player never feels it — hidden arrows appear silently and mastery
@@ -547,6 +600,14 @@ World.create(
         parts.length > 0 ? parts.join(' · ') : 'Every arrow visible — build it clean',
         'info',
       );
+    }
+
+    // First-session study cue: one skippable line teaching the verb, shown
+    // during SEE and faded before Scramble. Never repeats (flags store).
+    if (progress.day === 1 && progress.sessionNum === 1 && !skipIntro) {
+      hud.showIntroCue('Watch how the cycle connects — then rebuild it');
+      skipIntro = true;
+      flagSet('skipIntro', true);
     }
 
     if (!world.getSystem(InteractionSystemImpl)) {
@@ -859,6 +920,7 @@ World.create(
       interaction: () => interaction,
       structureScale: () => spawnHandles?.structure.object3D.scale.x ?? null,
       setXRTest: (v: boolean) => spawnHandles?.applyXRLayout(v),
+      setContrast: (v: boolean) => spawnHandles?.setHighContrast(v),
     };
   }
 }).catch((err) => {

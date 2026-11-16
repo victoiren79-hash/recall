@@ -64,6 +64,8 @@ export interface HudHandles {
   setPhase(phase: HudPhase, sessionNum: number): void;
   setProgress(litCount: number, total: number): void;
   showToast(main: string, sub: string, tone: 'success' | 'error' | 'info'): void;
+  /** First-session study cue during SEE (auto-fades; never repeats). */
+  showIntroCue(text: string): void;
   showSummary(info: SummaryInfo): void;
   hideSummary(): void;
   /** Drive the toast fade. Call once per frame with the frame delta in seconds. */
@@ -75,6 +77,8 @@ export interface HudHandles {
   /** Wired by index.ts. */
   onRestart: () => void;
   onNextDay: () => void;
+  /** High-contrast palette toggle (accessibility). */
+  onToggleContrast: () => void;
   /** User-requested hint for the highest-need concept (rebuild phase). */
   onHint: () => void;
   /** XR framing: panels wrap around the player instead of the front spread. */
@@ -413,6 +417,18 @@ export function createHud(world: any, root: any): HudHandles {
   // --- Menu column: one panel, three rows (flush button meshes) ---
   const buttonHandlers = new Map<Mesh, () => void>();
   const ICON_PAINTERS_HUD: Record<string, (ctx: CanvasRenderingContext2D, cx: number, cy: number, s: number) => void> = {
+    contrast(ctx, cx, cy, s) {
+      // Half-filled circle: the classic contrast glyph.
+      ctx.strokeStyle = '#7cb5ff';
+      ctx.lineWidth = s * 0.14;
+      ctx.beginPath();
+      ctx.arc(cx, cy, s * 0.5, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#7cb5ff';
+      ctx.beginPath();
+      ctx.arc(cx, cy, s * 0.5, Math.PI * 1.5, Math.PI * 0.5);
+      ctx.fill();
+    },
     hint(ctx, cx, cy, s) {
       // Question-mark glyph: open arc, dot, soft glow.
       ctx.strokeStyle = '#7cb5ff';
@@ -505,7 +521,8 @@ export function createHud(world: any, root: any): HudHandles {
     ICON_PAINTERS_HUD[icon](ctx, 118, 145, 82);
     ctx.textBaseline = 'middle';
     ctx.textAlign = 'left';
-    ctx.font = FONT_STACK.replace('{S}', '92');
+    // Long labels ('Study again') step down a size instead of clipping.
+    ctx.font = FONT_STACK.replace('{S}', label.length > 8 ? '72' : '92');
     ctx.fillStyle = '#ffffff';
     ctx.fillText(label, 232, 150);
 
@@ -647,7 +664,7 @@ export function createHud(world: any, root: any): HudHandles {
   // row floating just above the table surface, in front of the tray, directly
   // in the downward glance: zero overlap with the cycle above, and no head
   // tilt needed. Registered with the side-panel system like every panel.
-  const replayBtn = makeMenuButton('Replay', 'restart', 'full', -0.16, 0.075, -0.52, () => {
+  const replayBtn = makeMenuButton('Study again', 'restart', 'full', -0.16, 0.075, -0.52, () => {
     hud.onRestart();
   }, 0.13);
   const nextDayBtn = makeMenuButton('Next Day', 'play', 'full', 0, 0.075, -0.52, () => {
@@ -678,6 +695,11 @@ export function createHud(world: any, root: any): HudHandles {
   });
   makeMenuButton('Next Day', 'play', 'bottom', -0.48, -0.256, -0.75, () => {
     hud.onNextDay();
+  });
+  // High-contrast toggle (accessibility, additive): swaps cards/sockets/links
+  // to the WCAG-AA palette on demand. Default look untouched until pressed.
+  makeMenuButton('Contrast', 'contrast', 'full', -0.48, -0.34, -0.75, () => {
+    hud.onToggleContrast();
   });
 
   // Desktop fallback: canvas click + raycast against button meshes (in case
@@ -716,6 +738,27 @@ export function createHud(world: any, root: any): HudHandles {
 
   let toastElapsed = 0;
   let toastActive = false;
+
+  // --- Intro cue (first session only) — one skippable line during SEE ---
+  // Teaches the single interaction verb ("rebuild"). It fades on its own
+  // well before Scramble and vanishes instantly if the player grabs early —
+  // no modal, no click-through, never shown again (skipIntro flag).
+  const introCue = makeCanvas(1200, 200);
+  const introCuePanel = addPanel({ ...introCue }, 0.42, 0.42 * (200 / 1200), 0, 0.4, -0.62);
+  introCuePanel.material.visible = false;
+  introCuePanel.material.opacity = 0;
+  let introCueElapsed = 0;
+  let introCueActive = false;
+  const drawIntroCue = (text: string): void => {
+    const { canvas, ctx } = introCue;
+    panelBase(ctx, canvas.width, canvas.height, 96);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(214, 232, 252, 0.96)';
+    ctx.font = FONT_STACK.replace('{S}', '52');
+    ctx.fillText(text, canvas.width / 2, canvas.height / 2 + 4);
+    introCuePanel.texture.needsUpdate = true;
+  };
 
   const drawToast = (main: string, sub: string, tone: 'success' | 'error' | 'info'): void => {
     const { canvas, ctx } = toast;
@@ -769,8 +812,15 @@ export function createHud(world: any, root: any): HudHandles {
     onRestart: () => {},
     onNextDay: () => {},
     onHint: () => {},
+    onToggleContrast: () => {},
 
     setPhase(phase: HudPhase, sessionNum: number): void {
+      // Any phase past SEE retires the intro cue immediately (early grab).
+      if (phase !== 'see' && introCueActive) {
+        introCueActive = false;
+        introCuePanel.material.visible = false;
+        introCuePanel.material.opacity = 0;
+      }
       (instructionPanel as any).redraw(phase, sessionNum);
       instructionPanel.material.visible = phase !== 'summary';
       // The Hint control only makes sense while rebuilding.
@@ -789,6 +839,14 @@ export function createHud(world: any, root: any): HudHandles {
       toastPanel.material.opacity = 0; // entrance ramps it in (tickToast)
       toastElapsed = 0;
       toastActive = true;
+    },
+
+    showIntroCue(text: string): void {
+      drawIntroCue(text);
+      introCuePanel.material.visible = true;
+      introCuePanel.material.opacity = 0;
+      introCueElapsed = 0;
+      introCueActive = true;
     },
 
     showSummary(info: SummaryInfo): void {
@@ -847,6 +905,22 @@ export function createHud(world: any, root: any): HudHandles {
       } else if (progressShownFrac !== progressTargetFrac) {
         progressShownFrac = progressTargetFrac;
         redrawProgress();
+      }
+      // Intro cue fade: in quickly, hold, gone before Scramble (SEE runs
+      // ~5 s on the first session; the cue lives ~0.3-4.2 s of it).
+      if (introCueActive) {
+        introCueElapsed += delta * 1000;
+        const hold = 3600;
+        const fade = 600;
+        if (introCueElapsed >= hold + fade) {
+          introCueActive = false;
+          introCuePanel.material.visible = false;
+          introCuePanel.material.opacity = 0;
+        } else {
+          const fadeIn = Math.min(1, introCueElapsed / 300);
+          const fadeOut = introCueElapsed > hold ? 1 - (introCueElapsed - hold) / fade : 1;
+          introCuePanel.material.opacity = Math.min(fadeIn, fadeOut);
+        }
       }
       // Summary modal fade + gentle scale settle (spec §5A/§8).
       if (Math.abs(summaryTargetOpacity - summaryOpacity) > 0.001) {
