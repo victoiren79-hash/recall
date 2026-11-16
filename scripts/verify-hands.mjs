@@ -37,12 +37,6 @@ if (process.env.RECORD) {
   });
 }
 
-// Fresh flags so the first-session cue plays at boot (hook beat).
-await page.evaluate(() => new Promise((res) => {
-  const req = indexedDB.deleteDatabase('recall-flags');
-  req.onsuccess = () => res(true); req.onerror = () => res(true);
-  setTimeout(() => res(true), 600);
-}));
 const logs = [];
 page.on('console', (m) => logs.push(`[${m.type()}] ${m.text().slice(0, 160)}`));
 page.on('pageerror', (e) => logs.push(`[pageerror] ${String(e).slice(0, 200)}`));
@@ -63,6 +57,13 @@ await page.evaluate(() => new Promise((res) => {
   const req = indexedDB.deleteDatabase('recall-store');
   req.onsuccess = () => res(true);
   req.onerror = () => res(false);
+}));
+
+// Fresh flags too — the first-session cue plays at boot (hook beat).
+await page.evaluate(() => new Promise((res) => {
+  const req = indexedDB.deleteDatabase('recall-flags');
+  req.onsuccess = () => res(true); req.onerror = () => res(true);
+  setTimeout(() => res(true), 600);
 }));
 await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
 const app = await findApp();
