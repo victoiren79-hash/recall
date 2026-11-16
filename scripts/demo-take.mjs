@@ -182,11 +182,15 @@ const grabCarryRelease = async (nodeId, targetWorld, settleMs) => {
 // ---- Beat 1: study (SEE with cue) already played during boot — hold ----
 await page.waitForTimeout(4000);
 
-// ---- Beat 2: deliberate wrong-order bounce (evap before collect) ----
-console.log('beat: wrong-order bounce');
+// ---- Beat 2: deliberate wrong-band bounce (feedback beat) ----
+// Evaporation into Clouds' socket — wrong height, deterministic amber toast
+// ("belongs at a different height"). Band/occupied slips carry no link
+// evidence, so the money summary still needs a wrong-order session (see
+// verify-v13-summary) — this beat shows the FEEDBACK, not the penalty.
+console.log('beat: wrong-band bounce');
 {
-  const evapSock = await socketWorld('evap');
-  await grabCarryRelease('evap', evapSock, 3500); // amber toast beat
+  const cloudSock = await socketWorld('cloud');
+  await grabCarryRelease('evap', cloudSock, 3500);
   await page.waitForTimeout(2500); // extra hold on the toast
 }
 
@@ -229,9 +233,25 @@ if (nextDaySummary && rightTrig) {
 
 // ---- Beat 7: contrast toggle, hold on the high-contrast view ----
 console.log('beat: contrast toggle');
+await page.waitForTimeout(4000); // new session fully spawned
 const contrastBtn = await hudButton(
-  (w, p) => w === 0.18 && p.x < -0.4 && p.y < -0.3,
+  (w, p) => w === 0.18 && p.x < -0.4 && p.y < -0.28,
 );
+let contrastDebug = null;
+if (!contrastBtn) {
+  await page.waitForTimeout(3000);
+  contrastDebug = await app.evaluate(() => {
+    const out = [];
+    const root = window.__recall.interaction().spawn.root.object3D;
+    root.traverse((o) => {
+      if (o.isMesh && o.geometry?.parameters?.width === 0.18) {
+        out.push({ x: +o.position.x.toFixed(2), y: +o.position.y.toFixed(2) });
+      }
+    });
+    return { buttons: out, phase: window.__recall.state().phase, day: window.__recall.state().day };
+  });
+  console.log('contrast retry dump:', JSON.stringify(contrastDebug));
+}
 console.log('contrast button:', JSON.stringify(contrastBtn));
 if (contrastBtn && rightTrig) {
   await aim('right', contrastBtn);
