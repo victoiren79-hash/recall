@@ -38,15 +38,15 @@ if (true) {
 
 // First load compiles the whole app — give it up to 3 × 3 minutes.
 const gotoPatient = async (url, what) => {
-  for (let attempt = 1; attempt <= 3; attempt++) {
+  for (let attempt = 1; attempt <= 10; attempt++) {
     try {
       await (what === 'reload' ? page.reload({ waitUntil: 'domcontentloaded', timeout: 180000 })
                               : page.goto(url, { waitUntil: 'domcontentloaded', timeout: 180000 }));
       return;
     } catch (err) {
       console.log(`${what} attempt ${attempt} timed out — retrying in 10 s`);
-      await page.waitForTimeout(10000);
-      if (attempt === 3) throw err;
+      await page.waitForTimeout(15000);
+      if (attempt === 10) throw err;
     }
   }
 };
