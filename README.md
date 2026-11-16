@@ -19,7 +19,7 @@ Reviewing flashcards checks isolated answers. You can pass every card and still 
 
 One session takes a few minutes.
 
-1. **See it.** The water cycle floats in front of you, every connection glowing.
+1. **See it.** The water cycle floats in front of you, every connection glowing. On the very first session, one short line — *"Watch how the cycle connects — then rebuild it"* — fades in and out during this phase (never shown again after day 1).
 2. **Watch it break.** The concepts scatter onto the table below; faint ghost lines keep the shape of the structure visible.
 3. **Rebuild it.** Point at a concept, squeeze the trigger to grab it, and release it near its socket. The card presses into place with a ripple, and the connection it satisfies **draws itself in** with a traveling light. A wrong placement glides back to the table with a short, friendly explanation.
 4. **Feel it complete.** When the last connection locks in, the structure plays its own melody: a comet races the loop sounding each connection’s note, a bloom swells behind the cards, the cards breathe in sequence, and everything resolves on a chord. Then the summary fades in: what stuck, and what came back weaker.
@@ -91,12 +91,13 @@ Every link carries its own strength value (0–1), the day it was last rebuilt, 
 
 - Correctly rebuilt links gain strength (+0.08; +0.04 when a hint assisted the recall); links involved in bounced placements lose it (−0.12).
 - Each simulated day, memory decays a little (−0.06) — connection brightness reflects strength, so you can literally see what is fading.
-- **Review scheduling:** hidden relationships are chosen by review priority — weak relationships return sooner, strong ones earn progressively longer intervals, and relationships you have repeatedly struggled with come back more often. Assisted (hint-covered) recall is recorded separately from independent recall.
+- **Review scheduling:** hidden relationships are chosen by review priority — weak relationships return sooner, strong ones earn progressively longer intervals, and relationships you have repeatedly struggled with come back more often. Each link also tracks the last day it was *actually tested from memory* (hidden), so the hiding set rotates day to day instead of repeating the same two arrows. Assisted (hint-covered) recall is recorded separately from independent recall.
+- **Day briefing:** every session from day 2 opens by announcing what changed — "2 arrows hidden — recall from memory", a named drill, or "every arrow visible" — so the adaptive work is visible, not silent.
 - Concepts whose weakest link drops below 0.5 are selected as the next session's drill, capped at 3 per session.
 - The last 12 completed sessions are kept as history, powering the mastery trend in the summary.
-- Progress (day, rung, per-link strengths, concept profile, history) persists in IndexedDB and survives closing the app.
+- Progress (day, rung, per-link strengths, concept profile, history) persists in IndexedDB and survives closing the app. Preferences (intro cue seen, high-contrast mode) persist in a separate small flags store.
 
-A **"Next Day" control** fast-forwards the scheduler so progression can be seen without waiting real days. **"Restart"** resets the entire run.
+A **"Next Day" control** fast-forwards the scheduler so progression can be seen without waiting real days. **"Restart"** resets the entire run. The summary offers **"Study again"** (same day, fresh rebuild) alongside Next Day.
 
 ## 9. Why this belongs in VR
 
@@ -114,8 +115,10 @@ A **"Next Day" control** fast-forwards the scheduler so progression can be seen 
 - The completed structure celebrates with a comet racing the loop, a shockwave, a card wave, and a light bloom — then the summary fades in. Never fireworks.
 - **A Hint control during rebuilds**: escalating, contextual assistance — from a gentle “start here” socket highlight to an explicit relationship clue — requested by the user, never automatic, and recorded so hinted recalls count for less than independent ones.
 - **Procedural sound design** — every interaction has a quiet, spatially-placed voice: a tick on grab, a warm thock on placement, the pentatonic melody climbing as connections light up, a gentle bump on mistakes, and the completion sequence resolving on a literal chord. Fully synthesized in the Web Audio API — zero audio assets, nothing to license.
+- **High-contrast mode** — a toggle in the menu swaps card faces, socket outlines, and cycle links to a WCAG-AA palette (near-black cards, pure-white borders and labels, amber sockets) on demand. Off by default; the choice persists.
+- **Mistakes always speak.** Every correction pairs its amber flash with a written explanation — no feedback is ever color-only.
 
-Planned after the core loop: gaze-and-dwell fallback and a high-contrast mode.
+Planned after the core loop: gaze-and-dwell fallback.
 
 ## 11. Competition fit
 
@@ -135,6 +138,7 @@ Planned after the core loop: gaze-and-dwell fallback and a high-contrast mode.
 - **TypeScript**, bundled with Vite (via the IWSDK scaffold)
 - **IndexedDB** for progress and spaced-repetition state
 - **Vitest** for the pure-logic test suite (layout, validator, scheduler)
+- **Performance hygiene:** shared geometry/material pools across cards and props, bloom post-processing that steps aside entirely in XR, and XR supersampling capped at 1.5 for frame-budget safety
 - **Hosting:** GitHub Pages or Vercel (static, no server)
 - **Requires:** Node.js v20.19.0 or higher
 
@@ -245,7 +249,7 @@ Each script loads the app in a headless Chromium session with the IWSDK emulator
 - Room customization
 - A large content library
 - Passthrough / mixed reality in this version
-- Gaze-dwell fallback and high-contrast mode (planned)
+- Gaze-dwell fallback (planned)
 
 ## 18. Known limitations
 
