@@ -80,6 +80,15 @@ for (let i = 0; i < 40; i++) {
   await page.waitForTimeout(500);
 }
 console.log('phase:', await app.evaluate(() => window.__recall.state().phase));
+
+// Capture-start window: the app is loaded and stable — if you are filming
+// this run with Win+Shift+R (Snipping Tool) or Win+Alt+R (Game Bar),
+// START YOUR CAPTURE NOW. 25 seconds to get set.
+console.log('=======================================================');
+console.log('=== APP READY — START YOUR SCREEN CAPTURE NOW (25 s) ===');
+console.log('=======================================================');
+await page.waitForTimeout(25000);
+
 await app.evaluate(() => window.__recall.launch());
 await page.waitForTimeout(3500);
 
