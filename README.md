@@ -89,7 +89,7 @@ The difficulty rung responds to demonstrated mastery (evaluated from relationshi
 
 Every link carries its own strength value (0–1), the day it was last rebuilt, and its hint history, on a local spaced-repetition schedule.
 
-- Correctly rebuilt links gain strength (+0.08; +0.04 when a hint assisted the recall); links involved in bounced placements lose it (−0.12).
+- Correctly rebuilt links gain strength (+0.08; +0.04 when a hint assisted the recall); links contradicted by a wrong-order placement lose it (−0.12). Wrong-height or occupied-socket bounces carry no relationship evidence, so they cost nothing — they are recorded on the concept instead, shifting tomorrow's emphasis.
 - Each simulated day, memory decays a little (−0.06) — connection brightness reflects strength, so you can literally see what is fading.
 - **Review scheduling:** hidden relationships are chosen by review priority — weak relationships return sooner, strong ones earn progressively longer intervals, and relationships you have repeatedly struggled with come back more often. Each link also tracks the last day it was *actually tested from memory* (hidden), so the hiding set rotates day to day instead of repeating the same two arrows. Assisted (hint-covered) recall is recorded separately from independent recall.
 - **Day briefing:** every session from day 2 opens by announcing what changed — "2 arrows hidden — recall from memory", a named drill, or "every arrow visible" — so the adaptive work is visible, not silent.

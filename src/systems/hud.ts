@@ -642,7 +642,7 @@ export function createHud(world: any, root: any): HudHandles {
         ctx.fillStyle = 'rgba(170, 196, 235, 0.9)';
         ctx.font = FONT_STACK.replace('{S}', '52');
         ctx.fillText(
-          `${info.rejected} slip${info.rejected === 1 ? '' : 's'} — tomorrow watches ${info.slipFocus ?? 'you'}`,
+          `${info.rejected} slip${info.rejected === 1 ? '' : 's'} — relationships intact, tomorrow watches ${info.slipFocus ?? 'you'}`,
           60,
           396,
         );
