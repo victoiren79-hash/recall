@@ -58,6 +58,8 @@ export interface SummaryInfo {
   nextDrill: boolean;
   /** Rejected placements this session (drives the honest closing line). */
   rejected: number;
+  /** Concept the slips clustered on, if any. */
+  slipFocus?: string;
 }
 
 export interface HudHandles {
@@ -635,11 +637,12 @@ export function createHud(world: any, root: any): HudHandles {
         }
       } else if (info.rejected > 0) {
         // Slips with no relationship evidence (occupied/out-of-band drops):
-        // acknowledge them honestly instead of claiming a perfect run.
+        // acknowledge them honestly instead of claiming a perfect run — and
+        // name where tomorrow's mix shifts, because those slips were recorded.
         ctx.fillStyle = 'rgba(170, 196, 235, 0.9)';
         ctx.font = FONT_STACK.replace('{S}', '52');
         ctx.fillText(
-          `${info.rejected} slip${info.rejected === 1 ? '' : 's'} — tomorrow's mix shifts`,
+          `${info.rejected} slip${info.rejected === 1 ? '' : 's'} — tomorrow watches ${info.slipFocus ?? 'you'}`,
           60,
           396,
         );

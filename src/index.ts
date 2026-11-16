@@ -507,6 +507,14 @@ World.create(
     const masteryDelta = prevMastery === null
       ? null
       : Math.round((mastery - prevMastery) * 100);
+    // The concept this session's slips clustered on (any rejection type —
+    // band/occupied slips carry no link evidence but still shape tomorrow).
+    const slipCounts = new Map<string, number>();
+    for (const r of rejections) slipCounts.set(r.nodeId, (slipCounts.get(r.nodeId) ?? 0) + 1);
+    const slipFocusId = [...slipCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+    const slipFocus = slipFocusId
+      ? pack.nodes.find((n) => n.id === slipFocusId)?.label
+      : undefined;
     const summaryInfo = {
       sessionNum: progress.sessionNum,
       strong,
@@ -516,6 +524,7 @@ World.create(
       masteryDelta,
       nextDrill: config.removedNodeIds.length > 0,
       rejected: rejections.length,
+      slipFocus,
     };
     // The summary appears AFTER the sequence finishes — the comet, bloom,
     // shockwave and card wave are the star of the completion moment, not a
