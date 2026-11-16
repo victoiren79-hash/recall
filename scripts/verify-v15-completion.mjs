@@ -20,6 +20,29 @@ const recordVideo = process.env.RECORD
   : {};
 const context = await browser.newContext({ ignoreHTTPSErrors: true, viewport: { width: 1600, height: 900 }, ...recordVideo });
 const page = await context.newPage();
+
+if (process.env.RECORD) {
+  // Clean demo footage: hide the IWER emulator control overlay (fixed div,
+  // shadow-rooted). A per-frame sweep survives the overlay mounting late.
+  await page.addInitScript(() => {
+    const sweep = () => {
+      for (const d of document.querySelectorAll('div')) {
+        if (d.shadowRoot && d.style.position === 'fixed' && d.style.width === '100vw') {
+          d.style.display = 'none';
+        }
+      }
+      requestAnimationFrame(sweep);
+    };
+    requestAnimationFrame(sweep);
+  });
+}
+
+// Fresh flags so the first-session cue plays at boot (hook beat).
+await page.evaluate(() => new Promise((res) => {
+  const req = indexedDB.deleteDatabase('recall-flags');
+  req.onsuccess = () => res(true); req.onerror = () => res(true);
+  setTimeout(() => res(true), 600);
+}));
 const errors = [];
 page.on('pageerror', (e) => errors.push('PAGEERROR: ' + e.message));
 page.on('console', (m) => {
