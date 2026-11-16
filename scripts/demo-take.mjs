@@ -36,7 +36,21 @@ if (true) {
   });
 }
 
-await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
+// First load compiles the whole app — give it up to 3 × 3 minutes.
+const gotoPatient = async (url, what) => {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      await (what === 'reload' ? page.reload({ waitUntil: 'domcontentloaded', timeout: 180000 })
+                              : page.goto(url, { waitUntil: 'domcontentloaded', timeout: 180000 }));
+      return;
+    } catch (err) {
+      console.log(`${what} attempt ${attempt} timed out — retrying in 10 s`);
+      await page.waitForTimeout(10000);
+      if (attempt === 3) throw err;
+    }
+  }
+};
+await gotoPatient(URL, 'open');
 
 const findApp = async () => {
   for (let i = 0; i < 30; i++) {
@@ -57,7 +71,7 @@ await page.evaluate(() => new Promise((res) => {
   indexedDB.deleteDatabase('recall-flags').onsuccess = () => res(1);
   setTimeout(() => res(1), 800);
 }));
-await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
+await gotoPatient(URL, 'reload');
 const app = await findApp();
 
 for (let i = 0; i < 40; i++) {
