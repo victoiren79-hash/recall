@@ -31,7 +31,7 @@ if (process.env.RECORD) {
     const sweep = () => {
       for (const d of document.querySelectorAll('div')) {
         if (d.shadowRoot && d.style.position === 'fixed' && d.style.width === '100vw') {
-          d.style.display = 'none';
+          d.style.opacity = '0';
         }
       }
       requestAnimationFrame(sweep);
