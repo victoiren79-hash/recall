@@ -235,7 +235,7 @@ if (nextDaySummary && rightTrig) {
 console.log('beat: contrast toggle');
 await page.waitForTimeout(4000); // new session fully spawned
 const contrastBtn = await hudButton(
-  (w, p) => w === 0.18 && p.x < -0.4 && p.y < -0.28,
+  (w, p) => w === 0.18 && p.x < -0.55 && p.y < -0.2 && p.y > -0.3,
 );
 let contrastDebug = null;
 if (!contrastBtn) {
