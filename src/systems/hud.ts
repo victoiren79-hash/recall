@@ -587,8 +587,8 @@ export function createHud(world: any, root: any): HudHandles {
   let summaryTargetOpacity = 0;
   let summaryOpacity = 0;
   {
-    summary = makeCanvas(1024, 640);
-    const sp = addPanel(summary, 0.3, 0.1875, 0, 0.28, -0.52);
+    summary = makeCanvas(1024, 800);
+    const sp = addPanel(summary, 0.3, 0.2344, 0, 0.28, -0.52);
     summaryPanel = { material: sp.material, texture: sp.texture };
     summaryMesh = sp.mesh;
     sidePanels.push({
@@ -600,16 +600,24 @@ export function createHud(world: any, root: any): HudHandles {
       const { canvas, ctx } = summary;
       panelBase(ctx, canvas.width, canvas.height, 56);
 
-      // Auto-fit: long lines (the slip note, actionable hints) shrink until
-      // they sit inside the panel instead of clipping at the right edge.
-      const fitLine = (text: string, size: number, maxRight = canvas.width - 60): number => {
-        let px = size;
-        ctx.font = FONT_STACK.replace('{S}', String(px));
-        while (ctx.measureText(text).width + 60 > maxRight && px > 30) {
-          px -= 2;
-          ctx.font = FONT_STACK.replace('{S}', String(px));
+      // Long lines never shrink — they WRAP onto additional lines at full
+      // size (the panel grew taller for exactly this).
+      const wrapLine = (text: string, size: number, maxPx = canvas.width - 130): string[] => {
+        ctx.font = FONT_STACK.replace('{S}', String(size));
+        const words = text.split(' ');
+        const lines: string[] = [];
+        let current = '';
+        for (const word of words) {
+          const candidate = current ? `${current} ${word}` : word;
+          if (ctx.measureText(candidate).width <= maxPx || current === '') {
+            current = candidate;
+          } else {
+            lines.push(current);
+            current = word;
+          }
         }
-        return px;
+        if (current) lines.push(current);
+        return lines;
       };
 
       ctx.textAlign = 'left';
@@ -641,11 +649,10 @@ export function createHud(world: any, root: any): HudHandles {
         ctx.font = FONT_STACK.replace('{S}', '56');
         ctx.fillText('Next time:', 60, 396);
         ctx.fillStyle = 'rgba(210, 225, 245, 0.85)';
+        ctx.font = FONT_STACK.replace('{S}', '52');
         let y = 462;
         for (const line of info.weakLinks.slice(0, 2)) {
-          const text = `• ${line}`;
-          ctx.font = FONT_STACK.replace('{S}', String(fitLine(text, 52)));
-          ctx.fillText(text, 80, y);
+          ctx.fillText(`• ${line}`, 80, y);
           y += 62;
         }
       } else if (info.rejected > 0) {
@@ -653,9 +660,13 @@ export function createHud(world: any, root: any): HudHandles {
         // acknowledge them honestly instead of claiming a perfect run — and
         // name where tomorrow's mix shifts, because those slips were recorded.
         ctx.fillStyle = 'rgba(170, 196, 235, 0.9)';
+        ctx.font = FONT_STACK.replace('{S}', '52');
         const slipText = `${info.rejected} slip${info.rejected === 1 ? '' : 's'} — relationships intact, tomorrow watches ${info.slipFocus ?? 'you'}`;
-        ctx.font = FONT_STACK.replace('{S}', String(fitLine(slipText, 52)));
-        ctx.fillText(slipText, 60, 396);
+        let slipY = 396;
+        for (const line of wrapLine(slipText, 52)) {
+          ctx.fillText(line, 60, slipY);
+          slipY += 62;
+        }
       } else {
         ctx.fillStyle = 'rgba(126, 240, 192, 0.95)';
         ctx.font = FONT_STACK.replace('{S}', '52');
