@@ -284,62 +284,13 @@ World.create(
   window.addEventListener('pointerdown', () => ensureAudio(), { once: true });
   window.addEventListener('keydown', () => ensureAudio(), { once: true });
 
-  // Enter XR overlay (production has no dev-plugin UI): a fixed glass button
-  // that requests the immersive session — works from desktop Chrome and the
-  // Quest browser. Hidden while presenting; the flat page stays playable
-  // with the mouse (IWSDK's canvas pointer drives a cursor + grab).
-  const enterXR = document.createElement('button');
-  enterXR.type = 'button';
-  enterXR.className = 'recall-enter-xr';
-  enterXR.textContent = 'Enter XR';
-  const setXRLabel = (text: string, ms = 0): void => {
-    enterXR.textContent = text;
-    if (ms > 0) window.setTimeout(() => (enterXR.textContent = 'Enter XR'), ms);
-  };
-  // Support pre-flight: on a desktop without an XR runtime, say so instead of
-  // failing silently — the flat page stays mouse-playable either way.
-  const xrCheck = (navigator as any).xr?.isSessionSupported?.('immersive-vr');
-  if (xrCheck?.then) {
-    xrCheck
-      .then((ok: boolean) => {
-        if (!ok) setXRLabel('Desktop mode — mouse-playable (XR needs a headset or emulator)');
-      })
-      .catch(() => {});
-  }
-  enterXR.addEventListener('click', () => {
-    ensureAudio();
-    if (!(navigator as any).xr) {
-      setXRLabel('XR not available in this browser — desktop mode uses the mouse', 3000);
-      return;
-    }
-    try {
-      const result = (world as any).launchXR?.();
-      if (result?.catch) {
-        result.catch((err: unknown) => {
-          console.warn('[Recall] launchXR failed', err);
-          setXRLabel('XR failed to start — the page stays mouse-playable', 3000);
-        });
-      }
-    } catch (err) {
-      console.warn('[Recall] launchXR failed', err);
-      setXRLabel('XR failed to start — the page stays mouse-playable', 3000);
-    }
-  });
+  // XR launch: no custom button. With `xr.offer: "always"` in the config,
+  // IWSDK calls navigator.xr.offerSession() after init (and re-offers after
+  // each session ends), so XR-capable browsers show the PLATFORM's own
+  // "Enter VR" affordance; desktop browsers without XR just stay flat (and
+  // fully mouse-playable). One launch surface, zero UI duplication.
   const xrStyle = document.createElement('style');
   xrStyle.textContent = [
-    '.recall-enter-xr {',
-    '  position: fixed; top: 16px; right: 16px; z-index: 1000;',
-    '  padding: 10px 24px; border-radius: 14px;',
-    '  border: 1px solid rgba(96, 165, 250, 0.6);',
-    '  background: rgba(20, 26, 43, 0.85); color: #ffffff;',
-    "  font: 600 15px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;",
-    '  cursor: pointer; letter-spacing: 0.04em;',
-    '  box-shadow: 0 4px 18px rgba(59, 130, 246, 0.25);',
-    '}',
-    '.recall-enter-xr:hover {',
-    '  background: rgba(34, 44, 70, 0.92);',
-    '  border-color: rgba(140, 190, 250, 0.9);',
-    '}',
     // Desktop affordances hint: small, dim, bottom-left — discoverable
     // without competing with the scene.
     '.recall-desktop-hint {',
@@ -353,7 +304,6 @@ World.create(
     '.recall-desktop-hint b { color: #ffffff; font-weight: 700; }',
   ].join('\n');
   document.head.appendChild(xrStyle);
-  document.body.appendChild(enterXR);
   // The desktop hint: WASD turns the (seated) view, mouse drags cards.
   const desktopHint = document.createElement('div');
   desktopHint.className = 'recall-desktop-hint';
@@ -362,7 +312,6 @@ World.create(
   const xrRenderer = (world as any).renderer;
   const syncXRButton = (): void => {
     const presenting = Boolean(xrRenderer?.xr?.isPresenting);
-    enterXR.style.display = presenting ? 'none' : 'block';
     desktopHint.style.display = presenting ? 'none' : 'block';
   };
   xrRenderer?.xr?.addEventListener?.('sessionstart', syncXRButton);

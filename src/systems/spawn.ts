@@ -1043,18 +1043,22 @@ export function spawnStructure(
   sharedTextures.push(wallTexture);
   const wallMaterial = new MeshStandardMaterial({ map: wallTexture, roughness: 0.95, metalness: 0 });
   sharedMaterials.push(wallMaterial);
-  const wallGeometry = new PlaneGeometry(6.4, 3.6);
+  // Sized for XR vertical FoV: the headset's view reaches ~4.5 m up at this
+  // distance, so a 3.6 m wall showed its top edge (void above it). Kept the
+  // bottom below the floor line and extended up + sideways — covers the view
+  // while seated and on head turns.
+  const wallGeometry = new PlaneGeometry(8.4, 6.0);
   sharedGeometries.push(wallGeometry);
   const wall = new Mesh(wallGeometry, wallMaterial);
   wall.raycast = () => {};
   const wallEntity = track(world.createTransformEntity(wall, { parent: root }));
-  wallEntity.object3D.position.set(0, 0.1, -2.35);
+  wallEntity.object3D.position.set(0, 0.3, -2.35);
 
   const floorTexture = makeFloorTexture();
   sharedTextures.push(floorTexture);
   const floorMaterial = new MeshStandardMaterial({ map: floorTexture, roughness: 0.95, metalness: 0 });
   sharedMaterials.push(floorMaterial);
-  const floorGeometry = new PlaneGeometry(5.2, 2.6);
+  const floorGeometry = new PlaneGeometry(6.4, 3.2);
   sharedGeometries.push(floorGeometry);
   const floor = new Mesh(floorGeometry, floorMaterial);
   floor.raycast = () => {};
