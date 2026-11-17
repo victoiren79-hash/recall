@@ -1,4 +1,5 @@
 // src/index.ts
+// App conductor (main entry):
 // App conductor: boots the world, loads persisted progress, and runs the
 // session machine — SEE (study the structure) → scramble → REBUILD → complete
 // → SUMMARY → Replay / Next Day.

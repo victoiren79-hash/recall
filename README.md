@@ -276,3 +276,5 @@ Each script loads the app in a headless Chromium session with the IWSDK emulator
 **Assets:** The pack content, explanations, and visuals are original.
 
 **Competition:** Entered in the Meta VR Start Developer Competition 2026. Under the Official Rules, the author keeps ownership of the entry and grants the sponsor the rights described there for evaluation and promotion.
+
+<!-- verification note: main branch is live -->

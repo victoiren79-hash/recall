@@ -4,7 +4,7 @@
 // scramble → two correct placements → one deliberate wrong-order bounce (the
 // feedback beat) → remaining placements → completion sequence → summary →
 // Next Day → briefing toast → contrast toggle.
-// Run: node scripts/demo-take.mjs   (dev server on :8081; video lands in
+// Run: node scripts/demo-take.mjs  (single take, always recorded)   (dev server on :8081; video lands in
 // .verify/videos — ~10 minutes of wall time. You just wait.)
 import { chromium } from 'playwright';
 
