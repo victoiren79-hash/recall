@@ -627,11 +627,11 @@ export function createHud(world: any, root: any): HudHandles {
       if (info.weakLinks.length > 0) {
         ctx.fillStyle = 'rgba(255, 196, 120, 0.95)';
         ctx.font = FONT_STACK.replace('{S}', '56');
-        ctx.fillText('Came back stronger next time:', 60, 396);
+        ctx.fillText('Next time:', 60, 396);
         ctx.fillStyle = 'rgba(210, 225, 245, 0.85)';
         ctx.font = FONT_STACK.replace('{S}', '52');
         let y = 462;
-        for (const line of info.weakLinks.slice(0, 3)) {
+        for (const line of info.weakLinks.slice(0, 2)) {
           ctx.fillText(`• ${line}`, 80, y);
           y += 62;
         }

@@ -241,21 +241,49 @@ await page.waitForTimeout(9000);
 console.log('beat: summary hold');
 await page.waitForTimeout(8000);
 
-// ---- Beat 6: press Next Day (summary row), briefing toast ----
-console.log('beat: next day + briefing');
-const nextDaySummary = await hudButton(
-  (w, p) => w === 0.13 && p.x < -0.05 && p.x > -0.15 && p.y < -0.2,
-);
-console.log('next day button:', JSON.stringify(nextDaySummary));
-if (nextDaySummary && rightTrig) {
-  await aim('right', nextDaySummary);
+// ---- Beat 6: press Next Day (summary row) → gentle briefing ----
+console.log('beat: next day (day 2, gentle briefing)');
+const pressNextDay = async () => {
+  const btn = await hudButton(
+    (w, p) => w === 0.13 && p.x < -0.05 && p.x > -0.15 && p.y < -0.2,
+  );
+  if (!btn || !rightTrig) { console.log('  next-day button NOT FOUND'); return false; }
+  await aim('right', btn);
   await page.waitForTimeout(500);
   await page.mouse.move(rightTrig.x, rightTrig.y);
   await page.mouse.down();
   await page.waitForTimeout(400);
   await page.mouse.up();
-  await page.waitForTimeout(5000); // briefing toast beat
+  await page.waitForTimeout(4500); // briefing toast beat
+  const st = await app.evaluate(() => window.__recall.state());
+  console.log(`  now day ${st.day}, rung ${st.sessionNum}, phase ${st.phase}`);
+  return true;
+};
+await pressNextDay();
+
+// ---- Beat 6b: Day 2 played CLEAN (earns the harder Day 3) ----
+console.log('beat: day 2 clean placements');
+{
+  const order2 = ['collect', 'evap', 'vapor', 'cooling', 'cond', 'cloud', 'precip'];
+  for (const id of order2) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if ((await state(id)) === 'placed') break;
+      const sock = await socketWorld(id);
+      const st = await grabCarryRelease(id, sock, 1500);
+      if (st === 'placed') break;
+      for (let i = 0; i < 8 && (await state(id)) !== 'free'; i++) await page.waitForTimeout(500);
+    }
+  }
 }
+console.log('beat: day 2 completion hold');
+await page.waitForTimeout(7000);
+console.log('beat: day 2 summary hold (recovering)');
+await page.waitForTimeout(6000);
+
+// ---- Beat 6c: Next Day again → Day 3 briefing should say 2 arrows hidden ----
+console.log('beat: next day (day 3, harder briefing)');
+await pressNextDay();
+await page.waitForTimeout(2000);
 
 // ---- Beat 7: contrast toggle, hold on the high-contrast view ----
 console.log('beat: contrast toggle');

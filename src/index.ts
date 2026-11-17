@@ -492,15 +492,32 @@ World.create(
     });
     void saveProgress(progress);
 
+    // Actionable corrections: each fumbled concept gets its prerequisite
+    // named, derived from the rejections' blocking links (linkId = "from>to").
+    const orderHints = new Map<string, string>();
+    for (const r of rejections) {
+      for (const id of r.linkIds) {
+        const gt = id.indexOf('>');
+        if (gt > 0 && id.slice(gt + 1) === r.nodeId) {
+          orderHints.set(r.nodeId, id.slice(0, gt));
+        }
+      }
+    }
     const weakLinks = pack.links
       .map((l) => ({
         id: linkId(l.from, l.to),
+        from: l.from,
+        to: l.to,
         label: `${labelOf(l.from)} → ${labelOf(l.to)}`,
         strength: progress.links[linkId(l.from, l.to)]?.strength ?? 1,
       }))
       .filter((l) => l.strength < 0.75)
       .sort((a, b) => a.strength - b.strength)
-      .map((l) => l.label);
+      .map((l) => {
+        const src = orderHints.get(l.to);
+        if (src) return `Place ${labelOf(l.to)} after ${labelOf(src)}`;
+        return l.label;
+      });
 
     const strong = pack.links.length - weakLinks.length;
     const masteryPct = Math.round(mastery * 100);
