@@ -16,7 +16,10 @@ const browser = await chromium.launch({
 const context = await browser.newContext({
   ignoreHTTPSErrors: true,
   viewport: { width: 1600, height: 900 },
-  recordVideo: { dir: '.verify/videos', size: { width: 1600, height: 900 } },
+  // Recording is done with Xbox Game Bar (Win+Alt+R) — Playwright's own
+  // video encode is skipped unless RECORD=1 (it is far too heavy on low-end
+  // laptops: ~1 fps).
+  ...(process.env.RECORD ? { recordVideo: { dir: '.verify/videos', size: { width: 1600, height: 900 } } } : {}),
 });
 const page = await context.newPage();
 
